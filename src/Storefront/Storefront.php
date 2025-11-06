@@ -30,6 +30,7 @@ class Storefront extends Bundle implements ThemeInterface
         $loader->load('captcha.xml');
         $loader->load('seo.xml');
         $loader->load('controller.xml');
+        $loader->load('system.xml');
         $loader->load('theme.xml');
 
         $container->setParameter('storefrontRoot', $this->getPath());
