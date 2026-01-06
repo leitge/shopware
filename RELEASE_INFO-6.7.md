@@ -135,7 +135,7 @@ Additionally, the following configuration was deprecated:
 The `product.states` field is deprecated and will be removed in the next major release.
 A new field `product.type` was introduced to clearly indicate whether a product is `digital` or `physical`, or other types registered by third-party developers.
 
-As part of this change, the following deprecations were made: 
+As part of this change, the following deprecations were made:
 - The `order_line_item.states` field is deprecated in favor of `order_line_item.payload.product_type`.
 - `\Shopware\Core\Checkout\Cart\LineItem\LineItem::$states` is deprecated in favor of `\Shopware\Core\Checkout\Cart\LineItem\LineItem::$payload['productType']`.
 - The `LineItemProductStatesRule` is deprecated in favor of the new `LineItemProductTypeRule`.
@@ -174,7 +174,7 @@ This prevents cases where SEO-Urls were generated multiple times for the same ca
 
 ## Administration
 
-As part of this change, the following deprecations were made: 
+As part of this change, the following deprecations were made:
 - The `order_line_item.states` field is deprecated in favor of `order_line_item.payload.product_type`.
 - `\Shopware\Core\Checkout\Cart\LineItem\LineItem::$states` is deprecated in favor of `\Shopware\Core\Checkout\Cart\LineItem\LineItem::$payload['productType']`.
 - The `LineItemProductStatesRule` is deprecated in favor of the new `LineItemProductTypeRule`.
@@ -420,6 +420,20 @@ These blocks will be removed in v6.8.0.0 without replacement. Use the parent blo
 We also deprecate
 `administration/src/module/sw-newsletter-recipient/component/sw-newsletter-recipient-filter-switch` which will be removed with v6.8.0.0 and
 `administration/src/module/sw-newsletter-recipient/page/sw-newsletter-recipient-list/index.js` which will be private in v6.8.0.0.
+
+### Deprecations in mail template components
+
+The mail template index will be split into separate tabs for templates and headers/footers in v6.8.0.0.
+
+The following deprecations apply to `sw-mail-template-list` and `sw-mail-header-footer-list`:
+* `searchTerm` prop and watcher will be removed in v6.8.0.0
+* `getList()` method: `searchTerm` variable will be replaced with `this.term` in v6.8.0.0
+* `@page-change` handler will change to `onPageChange` in v6.8.0.0
+
+The following deprecations apply to `sw-mail-template-index`:
+* The `listing` mixin will be removed in v6.8.0.0
+* `term` data property will be removed in v6.8.0.0
+* `onChangeLanguage` method: the if/else block will be replaced with just the if-branch logic in v6.8.0.0
 
 ## Storefront
 
