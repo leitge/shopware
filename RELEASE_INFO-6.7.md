@@ -15,6 +15,14 @@ Custom fields are now **not searchable by default**. To make a custom field sear
 
 ## API
 
+### Improved tagged based cache invalidation
+
+Next routes now support cache tagging, enabling automatic invalidation when relevant entities are written:
+* `/store-api/breadcrumb/{id}`
+* `/store-api/media`
+* `/store-api/product/{productId}/find-variant`
+* `/store-api/product/{productId}/cross-selling`
+
 ## Core
 
 ### Introduce Immutable DAL flag
