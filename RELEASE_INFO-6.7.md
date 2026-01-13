@@ -25,6 +25,23 @@ Next routes now support cache tagging, enabling automatic invalidation when rele
 
 ## Core
 
+### Rework of DAL query generation for nested filters groups
+The DAL criteria builder has been adjusted to generate `EXISTS` subqueries instead of `LEFT JOIN`s for nested filter groups.
+
+Previously, each level of nested filters resulted in an additional `LEFT JOIN`, even when the join was only required to check for the existence of a related entity subject to some filter.
+In complex criteria trees with multiple filters on the same entity, this led to an exponential explosion of joins and significant performance degradation (e.g., the same table being joined multiple times only to evaluate existence conditions).
+
+An example of this is a query such as "find orders that have a line item of type A and one of type B and one of type C".
+According to [aadr/2020-11-19-dal-join-filter.md](adr/2020-11-19-dal-join-filter.md), this would look like:
+```php
+$criteria->addFilter(
+    new EqualsFilter('lineItems.type', 'product'),
+    new EqualsFilter('lineItems.type', 'custom'),
+    new EqualsFilter('lineItems.type', 'other'),
+);
+```
+Previously, the generated query would `LEFT JOIN` `order_line_item` multiple times onto `order`, causing the query to be extremely slow. The new `EXISTS` checks prevent this, making the query much faster.
+
 ### Introduce Immutable DAL flag
 
 A new `Immutable` flag is available for Data Abstraction Layer fields. Fields marked as immutable can be set during entity creation but cannot be updated later. This prevents accidental renames of technical identifiers that other subsystems rely on. Core entities now using the flag include:
