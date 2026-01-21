@@ -142,6 +142,10 @@ A new `doNotStore` property was added to the `HttpCacheCookieEvent` to allow fin
 This new property allows preventing the current response from being stored in the cache.
 This behaviour differs from the existing ìsCacheable` property, which will also prevent the following requests from that session being cached.
 
+### Logging for invalidated cache tags
+
+Added logging for invalidated cache tags at the info level, with the ability to enable or disable the logging via configuration for debugging and transparency.
+
 ## Administration
 
 ### Deprecations in mail template components
