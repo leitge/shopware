@@ -7,6 +7,10 @@
 All symfony packages have been updated to version 7.4. 
 Take a look at the [Symfony 7.4 release post](https://symfony.com/blog/symfony-7-4-0-released) for more information.
 
+### Changed maintenance mode redirect
+After maintenance ends, users are now redirected back to the page they were on before maintenance.
+Previously, users were always redirected to the shop homepage.
+
 ### Support of media paths with up to 2046 characters
 Previously the maximum length for media paths was limited to 255 characters (due to default StringField limit) while the
 database field already supported up to 2046 characters. This limitation has now been lifted and media paths can be up to
