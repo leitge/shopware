@@ -26,6 +26,10 @@ Also, the generator now sets `CASCADE DELETE` on foreign keys for the translatio
 
 ## Administration
 
+### Help text support for color picker custom fields
+
+The color picker type for custom fields now supports adding a help text. When creating or editing a custom field of type "Colorpicker" in Settings > Content > Custom fields, you can now specify a help text that will be displayed to users in the Administration.
+
 ### `sw-select-base` clearable button default behavior changed
 
 The `showClearableButton` prop in `sw-select-base` now defaults based on the `required` attribute:
