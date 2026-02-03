@@ -32,6 +32,30 @@ Also, the generator now sets `CASCADE DELETE` on foreign keys for the translatio
 
 ## Administration
 
+### Deprecation of `items` prop in `sw-entity-listing` component
+
+The `items` prop in the `sw-entity-listing` component has been deprecated and will be removed in v6.8.0.
+Please use the `dataSource` prop instead to align with the parent `sw-data-grid` component.
+
+**Before (deprecated):**
+```html
+<sw-entity-listing
+    :items="entityList"
+    :repository="entityRepository"
+    :columns="columns"
+/>
+```
+
+**After (recommended):**
+```html
+<sw-entity-listing
+    :data-source="entityList"
+    :repository="entityRepository"
+    :columns="columns"
+/>
+```
+
+The component will continue to work with the `items` prop for backward compatibility, but you will see a deprecation warning in the browser console.
 ### Notification translations now update when language changes
 
 Notifications now store translation keys directly in their title and message fields instead of translating them immediately. The template checks if the text is a translation key and translates it reactively, allowing notifications to update automatically when the user changes the interface language.
