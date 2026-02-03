@@ -58,6 +58,10 @@ Previously, the clearable button was always hidden by default (`showClearableBut
 
 ## App System
 
+### Fixed custom headers for app flow action webhooks in async mode
+
+Custom headers defined in app flow action configurations are now correctly sent when webhooks are processed asynchronously via message queue (when `admin_worker` is disabled). Previously, these headers were only sent when `admin_worker` was enabled (synchronous processing).
+
 ## Hosting & Configuration
 
 ## Critical Fixes
