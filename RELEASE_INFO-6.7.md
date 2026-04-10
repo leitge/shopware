@@ -10,6 +10,10 @@ The login and OAuth token endpoints now support optional per user (`login_user`,
 
 ## Core
 
+### "Find best variant setting" is now applied for storefront filtering
+
+Users can now control which representative of variant products is shown in filtered listings via the Product settings "Preview best matching variant in search results and filtered listings".
+
 ## Administration
 
 ### Re-render iframe integrations when location changes
