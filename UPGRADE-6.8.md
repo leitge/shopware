@@ -572,6 +572,29 @@ shopware:
           type: 'mysql'
 ```
 
+## Events require `Context` constructor parameter
+
+The following events now require `Context` as the last constructor parameter and implement `ShopwareEvent`.
+The deprecated `getNullableContext()` method was removed.
+
+```php
+// Before
+$event = new ThemeAssignedEvent($themeId, $salesChannelId);
+
+// After
+$event = new ThemeAssignedEvent($themeId, $salesChannelId, $context);
+```
+
+- `Shopware\Core\Content\ImportExport\Event\EnrichExportCriteriaEvent`
+- `Shopware\Core\Content\ImportExport\Event\ImportExportBeforeExportRecordEvent`
+- `Shopware\Core\Content\ImportExport\Event\ImportExportExceptionImportExportHandlerEvent`
+- `Shopware\Core\Content\Seo\Event\SeoUrlUpdateEvent`
+- `Shopware\Core\Content\Media\Event\MediaFileExtensionWhitelistEvent`
+- `Shopware\Core\Content\Media\Event\UnusedMediaSearchEvent`
+- `Shopware\Storefront\Theme\Event\ThemeAssignedEvent`
+- `Shopware\Storefront\Theme\Event\ThemeConfigChangedEvent`
+- `Shopware\Storefront\Theme\Event\ThemeConfigResetEvent`
+
 ### Changed Exception Classes towards domain exceptions
 
 The following exception classes were removed and replaced by domain exceptions:
