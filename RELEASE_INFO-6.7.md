@@ -473,6 +473,24 @@ If you have good reasons to use `@extend` and can ensure that the combined selec
 
 ## Hosting & Configuration
 
+### Add custom HTML element configuration for HTML Sanitizer
+
+A new config option `custom_tags` was added, to allow the usage of custom HTML elements using the Shopware CMS Pages and other text fields.
+
+```yaml
+shopware:
+    html_sanitizer:
+        sets:
+            - name: basic
+              custom_tags:
+                  - tag: "your-custom-element"
+                    type: "Block"
+                    contents: "Flow"
+                    attr_collections: ["Common"]
+                    attributes:
+                        - custom-attribute
+```
+
 ## Critical Fixes
 
 # 6.7.8.1
