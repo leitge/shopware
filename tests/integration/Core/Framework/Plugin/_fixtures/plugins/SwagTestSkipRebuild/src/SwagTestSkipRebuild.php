@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace SwagTestPlugin;
+namespace SwagTestSkipRebuild;
 
 use Shopware\Core\Content\Category\CategoryCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -10,12 +10,11 @@ use Shopware\Core\Framework\Plugin\Context\ActivateContext;
 use Shopware\Core\Framework\Plugin\Context\DeactivateContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Shopware\Core\Framework\Plugin\Context\UpdateContext;
-use Shopware\Core\Framework\Test\Plugin\_fixture\bundles\FooBarBundle;
-use Shopware\Core\Framework\Test\Plugin\_fixture\bundles\GizmoBundle;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
+use Shopware\Tests\Integration\Core\Framework\Plugin\_fixtures\bundles\FooBarBundle;
 use Symfony\Contracts\Service\Attribute\Required;
 
-class SwagTestPlugin extends Plugin
+class SwagTestSkipRebuild extends Plugin
 {
     final public const PLUGIN_LABEL = 'English plugin name';
 
@@ -86,11 +85,14 @@ class SwagTestPlugin extends Plugin
     public function getAdditionalBundles(AdditionalBundleParameters $parameters): array
     {
         require_once __DIR__ . '/../../../bundles/FooBarBundle.php';
-        require_once __DIR__ . '/../../../bundles/GizmoBundle.php';
 
         return [
             new FooBarBundle(),
-            -10 => new GizmoBundle(),
         ];
+    }
+
+    public function rebuildContainer(): bool
+    {
+        return false;
     }
 }
