@@ -337,6 +337,10 @@ The Administration sidebar off-canvas now closes reliably on very small viewport
 Switch and checkbox fields in theme configuration now render and handle inheritance consistently. Before they wouldn't have shown the inheritance switch.
 Also the checkbox field is now positionally aligned with the other components.
 
+### Support test file splitting
+
+Administration Jest tests can now be split into multiple files using `*.spec/` directories.
+ESLint now warns for Administration test files with 500 lines or more and errors for test files with 1000 lines or more.
 ### Resolving download errors by renaming media
 When merchants rename a media file, its URL automatically updates so they can download it without issues.
 
