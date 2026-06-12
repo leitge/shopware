@@ -64,6 +64,7 @@ type CustomFieldConditionConfig = {
     type: string;
     componentName: string;
     customFieldType?: string;
+    disabled?: boolean;
 };
 
 /**
@@ -318,6 +319,8 @@ export default class RuleConditionService {
         }
 
         const transformedConfig = { ...config };
+
+        delete transformedConfig.disabled;
 
         if (
             [
