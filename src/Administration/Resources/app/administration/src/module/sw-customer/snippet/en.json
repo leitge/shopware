@@ -2,7 +2,9 @@
   "sw-customer": {
     "error": {
       "COMPANY_IS_REQUIRED": "The field company is required for commercial customers.",
-      "passwordDoNotMatch": "Your inputs for the new password and password confirmation do not match."
+      "passwordDoNotMatch": "Your inputs for the new password and password confirmation do not match.",
+      "VIOLATION::PASSWORD_IS_TOO_LONG": "The chosen password is too long.",
+      "VIOLATION::PASSWORD_IS_TOO_SHORT": "The chosen password is too short."
     },
     "notification": {
       "requiredFields": "Please fill in all required fields."
@@ -18,6 +20,7 @@
     },
     "customerGroupRegistration": {
       "alert": "Access to customer group \"{name}\" requested.",
+      "customerInactiveMessage": "Inactive customers cannot be accepted or declined to any customer group.",
       "accept": "Accept",
       "acceptMessage": "Customer group has been changed",
       "decline": "Decline",

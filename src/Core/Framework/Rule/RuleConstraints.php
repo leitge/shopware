@@ -7,10 +7,14 @@ use Shopware\Core\Framework\Validation\Constraint\ArrayOfType;
 use Shopware\Core\Framework\Validation\Constraint\ArrayOfUuid;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\Constraints\Choice;
+use Symfony\Component\Validator\Constraints\Collection;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Type;
 
+/**
+ * @deprecated tag:v6.8.0 - reason:becomes-final
+ */
 #[Package('fundamentals@after-sales')]
 class RuleConstraints
 {
@@ -87,13 +91,31 @@ class RuleConstraints
     }
 
     /**
+     * @return list<Constraint>
+     */
+    public static function dateBetween(): array
+    {
+        return [
+            new NotBlank(),
+            new Collection(
+                fields: [
+                    'from' => [new NotBlank(), new Type('string')],
+                    'to' => [new NotBlank(), new Type('string')],
+                ],
+                allowExtraFields: false,
+                allowMissingFields: false,
+            ),
+        ];
+    }
+
+    /**
      * @param array<int, string> $choices
      *
      * @return list<Constraint>
      */
     public static function choice(array $choices): array
     {
-        return [new NotBlank(), new Choice($choices)];
+        return [new NotBlank(), new Choice(choices: $choices)];
     }
 
     /**
@@ -116,7 +138,7 @@ class RuleConstraints
 
         return [
             new NotBlank(),
-            new Choice($operators),
+            new Choice(choices: $operators),
         ];
     }
 
@@ -136,7 +158,7 @@ class RuleConstraints
 
         return [
             new NotBlank(),
-            new Choice($operators),
+            new Choice(choices: $operators),
         ];
     }
 
@@ -156,7 +178,7 @@ class RuleConstraints
 
         return [
             new NotBlank(),
-            new Choice($operators),
+            new Choice(choices: $operators),
         ];
     }
 
@@ -166,6 +188,7 @@ class RuleConstraints
     public static function dateOperators(bool $emptyAllowed = true): array
     {
         $operators = [
+            Rule::OPERATOR_BETWEEN,
             Rule::OPERATOR_NEQ,
             Rule::OPERATOR_GTE,
             Rule::OPERATOR_LTE,
@@ -180,7 +203,7 @@ class RuleConstraints
 
         return [
             new NotBlank(),
-            new Choice($operators),
+            new Choice(choices: $operators),
         ];
     }
 

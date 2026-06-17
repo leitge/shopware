@@ -1,4 +1,5 @@
 import AnalyticsEvent from 'src/plugin/google-analytics/analytics-event';
+import ProductPageHelper from 'src/plugin/google-analytics/product-page.helper';
 
 export default class ViewItemEvent extends AnalyticsEvent
 {
@@ -20,30 +21,31 @@ export default class ViewItemEvent extends AnalyticsEvent
         const productItemElement = document.querySelector('[itemtype="https://schema.org/Product"]');
         if (!productItemElement) {
             console.warn('[Google Analytics Plugin] Product itemtype ([itemtype="https://schema.org/Product"]) could not be found in document.');
-
             return;
         }
 
-        const productIdElement = productItemElement.querySelector('meta[itemprop="productID"]');
+        const productIdElement = productItemElement.querySelector('[itemprop="sku"]');
         const productNameElement = productItemElement.querySelector('[itemprop="name"]');
         if (!productIdElement || !productNameElement) {
-            console.warn('[Google Analytics Plugin] Product ID (meta[itemprop="productID"]) or product name ([itemprop="name"]) could not be found within product scope.');
-
+            console.warn('[Google Analytics Plugin] Product ID ([itemprop="sku"]) or product name ([itemprop="name"]) could not be found within product scope.');
             return;
         }
 
-        const productId = productIdElement.content;
+        const productId = productIdElement.textContent.trim();
         const productName = productNameElement.textContent.trim();
         if (!productId || !productName) {
             console.warn('[Google Analytics Plugin] Product ID or product name is empty, do not track page view.');
-
             return;
         }
 
         gtag('event', 'view_item', {
+            'currency': ProductPageHelper.getCurrency(),
+            'value': ProductPageHelper.getValue(),
             'items': [{
                 'id': productId,
                 'name': productName,
+                'brand': ProductPageHelper.getBrand(),
+                ...ProductPageHelper.getCategories(),
             }],
         });
     }

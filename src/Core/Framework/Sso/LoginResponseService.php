@@ -2,6 +2,7 @@
 
 namespace Shopware\Core\Framework\Sso;
 
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Shopware\Core\Framework\Log\Package;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -10,14 +11,17 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * @internal
+ *
+ * @final
  */
 #[Package('framework')]
-final class LoginResponseService
+class LoginResponseService
 {
     private const ADMIN_ROUTE_NAME = 'administration.index';
 
     public function __construct(
         private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -80,6 +84,6 @@ final class LoginResponseService
 
     private function createTimeStamp(int $expiresIn): int
     {
-        return (int) strtotime('+' . $expiresIn . ' seconds') * 1000;
+        return ($this->clock->now()->getTimestamp() + $expiresIn) * 1000;
     }
 }

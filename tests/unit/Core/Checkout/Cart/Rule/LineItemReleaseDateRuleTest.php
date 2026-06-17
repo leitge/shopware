@@ -14,6 +14,7 @@ use Shopware\Core\Checkout\Cart\Rule\LineItemScope;
 use Shopware\Core\Checkout\CheckoutRuleScope;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Rule\Rule;
+use Shopware\Core\Framework\Rule\RuleConstraints;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Tests\Unit\Core\Checkout\Cart\SalesChannel\Helper\CartRuleHelperTrait;
 use Symfony\Component\Validator\Constraints\Choice;
@@ -44,13 +45,10 @@ class LineItemReleaseDateRuleTest extends TestCase
         static::assertSame('cartLineItemReleaseDate', $this->rule->getName());
     }
 
-    /**
-     * This test verifies that we have 2 constraints.
-     * One for the date and one for the operators.
-     */
     public function testConstraints(): void
     {
         $expectedOperators = [
+            Rule::OPERATOR_BETWEEN,
             Rule::OPERATOR_NEQ,
             Rule::OPERATOR_GTE,
             Rule::OPERATOR_LTE,
@@ -72,7 +70,21 @@ class LineItemReleaseDateRuleTest extends TestCase
         static::assertEquals(new Type(type: 'string'), $date[1]);
 
         static::assertEquals(new NotBlank(), $operators[0]);
-        static::assertEquals(new Choice($expectedOperators), $operators[1]);
+        static::assertEquals(new Choice(choices: $expectedOperators), $operators[1]);
+    }
+
+    public function testBetweenConstraints(): void
+    {
+        $rule = new LineItemReleaseDateRule(
+            operator: Rule::OPERATOR_BETWEEN,
+        );
+
+        $constraints = $rule->getConstraints();
+
+        static::assertEquals(
+            RuleConstraints::dateBetween(),
+            $constraints['lineItemReleaseDate']
+        );
     }
 
     /**
@@ -81,6 +93,7 @@ class LineItemReleaseDateRuleTest extends TestCase
     public static function getMatchValues(): array
     {
         return [
+            'EQ - null' => [false, null, null, Rule::OPERATOR_EQ],
             'EQ - positive 1' => [true, '2020-02-06 02:00:00', '2020-02-06 02:00:00', Rule::OPERATOR_EQ],
             'EQ - positive 2' => [true, '2020-02-06', '2020-02-06', Rule::OPERATOR_EQ],
             'EQ - negative' => [false, '2020-02-05 00:00:00', '2020-02-06 02:00:00', Rule::OPERATOR_EQ],
@@ -103,10 +116,6 @@ class LineItemReleaseDateRuleTest extends TestCase
         ];
     }
 
-    /**
-     * This test verifies that our rule works correctly
-     * with all the different operators and values.
-     */
     #[DataProvider('getMatchValues')]
     public function testRuleMatching(bool $expected, ?string $itemReleased, ?string $ruleDate, string $operator): void
     {

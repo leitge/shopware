@@ -1,9 +1,10 @@
 <?php declare(strict_types=1);
 
+use Shopware\Core\Framework\Adapter\Twig\SwTwigFunction;
+
 return [
     'filePatterns' => [
         '**/Test/**', // Testing
-        '**/src/WebInstaller/**', // WebInstaller TODO: remove after first 6.7 release
         '**/src/Core/Framework/Update/**', // Updater
         '**/src/Core/TestBootstrapper.php', // Testing
         '**/src/Core/Framework/Demodata/Faker/Commerce.php', // dev dependency
@@ -11,6 +12,7 @@ return [
         '**/src/Core/Profiling/Doctrine/BacktraceDebugDataHolder.php', // dev dependency
         '**/src/Core/Migration/Traits/MigrationUntouchedDbTestTrait.php', // Test code in prod
         '**src/Core/Framework/Script/ServiceStubs.php', // never intended to be extended
+        '**/tests/unit/Core/DevOps/Docs/Script/_fixtures/**', // Testing
         '**/src/Core/Framework/App/AppException.php', // intended to be internal
     ],
     'errors' => [
@@ -20,99 +22,94 @@ return [
         // Will be typed in Symfony 8 (maybe)
         preg_quote('Symfony\Component\Console\Command\Command#configure() changed from no type to void', '/'),
 
-        // Version-related const values changed for the 7.3 update
-        preg_quote('Value of constant Symfony\Component\HttpKernel\Kernel', '/'),
+        // False positive, when an object extends Symfony Command and has its own constructor
+        '.* was added to Method __construct\(\) of class Symfony\\\\Component\\\\Console\\\\Command\\\\Command',
+        preg_quote('Symfony\Component\Console\Command\Command#__construct()', '/'),
 
         // Cannot be inspected through reflection https://github.com/Roave/BetterReflection/issues/1376
         'An enum expression .* is not supported in .*',
 
-        // Incorrectly deprecated
-        'The return type of Shopware\\\\Core\\\\Checkout\\\\Document\\\\DocumentException.* changed from self',
-        preg_quote('The return type of Shopware\Core\Content\Product\ProductException::productNotFound() changed from self|Shopware\Core\Content\Product\Exception\ProductNotFoundException to Shopware\Core\Content\Product\Exception\ProductNotFoundException', '/'),
-
         // Expected to be appended when a new event is added
         preg_quote('Value of constant Shopware\Core\Framework\Webhook\Hookable', '/'),
 
-        // Fix to make promotions work with order recalculation
-        'Value of constant Shopware\\\\Core\\\\Checkout\\\\Cart\\\\Order\\\\OrderConverter::ADMIN_EDIT_ORDER_PERMISSIONS changed from array \((\n.*)*skipPromotion.*(\n.*)*to array \((\n.*)*pinAutomaticPromotions',
+        // Intentional rename of the technical-term analyzer chain so the public
+        // identifier matches how the chain is referenced everywhere else
+        // (constants, `buildTextFieldConfig(technicalTerms: true)`, the
+        // architecture doc). Shopware-internal users were already going through
+        // `ElasticsearchFieldBuilder::ANALYZER_WHITESPACE_TECHNICAL_*` and the
+        // `TECHNICAL_TERM_SEARCH_FIELD` const — both still resolve correctly;
+        // only the underlying analyzer string moved from
+        // `sw_*_word_delimiter_*_analyzer` to `sw_*_technical_term_*_analyzer`.
+        // Documented in UPGRADE-6.8.md.
+        preg_quote('Value of constant Shopware\Elasticsearch\Framework\ElasticsearchFieldBuilder::ANALYZER_WHITESPACE_TECHNICAL_INDEX', '/'),
+        preg_quote('Value of constant Shopware\Elasticsearch\Framework\ElasticsearchFieldBuilder::ANALYZER_WHITESPACE_TECHNICAL_SEARCH', '/'),
+        preg_quote('Value of constant Shopware\Elasticsearch\Framework\AbstractElasticsearchDefinition::TECHNICAL_TERM_SEARCH_FIELD', '/'),
 
-        // Only new additions
-        'Value of constant Shopware\\\\Core\\\\Checkout\\\\Cart\\\\Order\\\\OrderConverter::ADMIN_EDIT_ORDER_PERMISSIONS changed from array \((\n.*)*to array \((\n.*)*skipCartPersistence(.*\n.*)*skipPrimaryOrderIds(.*\n.*)*automaticPromotionDeletionNotices',
+        // Had a typo in the internal annotation
+        preg_quote('CHANGED: Shopware\Core\Framework\DataAbstractionLayer\Search\CompressedCriteriaDecoder was marked "@internal"', '/'),
 
-        // No break as mixed is the top type, and every other type is a subtype of mixed
-        preg_quote('The parameter $value of Shopware\Storefront\Event\StorefrontRenderEvent#setParameter() changed from no type to mixed', '/'),
+        // SystemDumpDatabaseCommand was not marked @internal
+        preg_quote('CHANGED: Shopware\\Core\\DevOps\\System\\Command\\SystemDumpDatabaseCommand was marked "@internal"', '/'),
+        preg_quote('REMOVED: Method Shopware\\Core\\DevOps\\System\\Command\\SystemDumpDatabaseCommand#getIgnoreTableStmt() was removed', '/'),
 
-        // No break as the `{get,set}SeoLink()` changes have not been released
-        preg_quote('REMOVED: Property Shopware\Core\Content\Category\SalesChannel\SalesChannelCategoryEntity#$seoLink was removed', '/'),
-        'REMOVED: Method Shopware\\\\Core\\\\Content\\\\Category\\\\SalesChannel\\\\SalesChannelCategoryEntity#(get|set)SeoLink\(\) was removed',
+        // Plugin lifecycle command constructors were not marked @internal
+        preg_quote('REMOVED: Method Shopware\Core\Framework\Plugin\Command\Lifecycle\AbstractPluginLifecycleCommand#__construct() was removed', '/'),
+        preg_quote('ADDED: Parameter projectDir was added to Method __construct() of class Shopware\Core\Framework\Plugin\Command\Lifecycle\AbstractPluginLifecycleCommand', '/'),
+        preg_quote('CHANGED: Shopware\Core\Framework\Plugin\Command\Lifecycle\AbstractPluginLifecycleCommand#__construct() was marked "@internal"', '/'),
+        preg_quote('CHANGED: The number of required arguments for Shopware\Core\Framework\Plugin\Command\Lifecycle\AbstractPluginLifecycleCommand#__construct() increased from 3 to 4', '/'),
 
-        // The type has been extended and the old type is still accepted
-        'CHANGED: The parameter \$context of Shopware\\\\Core\\\\Framework\\\\Adapter\\\\Twig\\\\Extension\\\\BuildBreadcrumbExtension#(getFullBreadcrumb|getFullBreadcrumbById)\(\) changed from Shopware\\\\Core\\\\Framework\\\\Context to Shopware\\\\Core\\\\Framework\\\\Context\|Shopware\\\\Core\\\\System\\\\SalesChannel\\\\SalesChannelContext',
+        // No break as all existing NoContentResponse usages are still valid with the widened StoreApiResponse return type
+        'CHANGED: The return type of Shopware\\\\Core\\\\Content\\\\Newsletter\\\\SalesChannel\\\\.* changed from Shopware\\\\Core\\\\System\\\\SalesChannel\\\\NoContentResponse to (?:the non-covariant )?Shopware\\\\Core\\\\System\\\\SalesChannel\\\\StoreApiResponse',
 
-        // Widening the property type with null is necessary and not a BC break
-        preg_quote('CHANGED: Type of property Shopware\Core\System\Tax\Aggregate\TaxRule\TaxRuleEntity#$type changed from Shopware\Core\System\Tax\Aggregate\TaxRuleType\TaxRuleTypeEntity to Shopware\Core\System\Tax\Aggregate\TaxRuleType\TaxRuleTypeEntity|null', '/'),
-        preg_quote('CHANGED: Type of property Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailEntity#$url changed from string to string|null', '/'),
-        preg_quote('CHANGED: Type of property Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailEntity#$mediaId changed from string to string|null', '/'),
-        preg_quote('CHANGED: The parameter $text of Shopware\Core\Framework\Adapter\Twig\Extension\SwSanitizeTwigFilter#sanitize() changed from string to string|null', '/'),
+        // class is @final, so making a parameter nullable is not a breaking change
+        preg_quote('CHANGED: The parameter $fileType of Shopware\Core\Checkout\Document\Service\DocumentGenerator#readDocument() changed from string to string|null', '/'),
 
-        // Fix for promotion discount entity property initialization error - necessary to prevent runtime errors
-        preg_quote('CHANGED: Type of property Shopware\Core\Checkout\Promotion\Aggregate\PromotionDiscount\PromotionDiscountEntity#$sorterKey changed from string to string|null', '/'),
-        preg_quote('CHANGED: Type of property Shopware\Core\Checkout\Promotion\Aggregate\PromotionDiscount\PromotionDiscountEntity#$applierKey changed from string to string|null', '/'),
-        preg_quote('CHANGED: The parameter $sorterKey of Shopware\Core\Checkout\Promotion\Aggregate\PromotionDiscount\PromotionDiscountEntity#setSorterKey() changed from string to string|null', '/'),
-        preg_quote('CHANGED: The parameter $applierKey of Shopware\Core\Checkout\Promotion\Aggregate\PromotionDiscount\PromotionDiscountEntity#setApplierKey() changed from string to string|null', '/'),
+        // SystemRestoreDatabaseCommand was marked @internal
+        preg_quote('CHANGED: Shopware\\Core\\DevOps\\System\\Command\\SystemRestoreDatabaseCommand was marked "@internal"', '/'),
 
-        // The media thumbnail size id changes have not been released
-        preg_quote('CHANGED: Type of property Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailEntity#$mediaThumbnailSizeId changed from string to string|null', '/'),
-        preg_quote('CHANGED: The return type of Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailEntity#getMediaThumbnailSizeId() changed from string to the non-covariant string|null', '/'),
-        preg_quote('CHANGED: The return type of Shopware\Core\Content\Media\Aggregate\MediaThumbnail\MediaThumbnailEntity#getMediaThumbnailSizeId() changed from string to string|null', '/'),
+        // Unused protected method from final class can be removed safely
+        preg_quote('REMOVED: Method Shopware\Core\Framework\Store\InAppPurchase\Services\DecodedPurchaseStruct#throwException() was removed', '/'),
 
-        // The class has not been released
-        'REMOVED: Class Shopware\\\\Elasticsearch\\\\Product\\\\CachedSearchConfigLoader has been deleted',
+        // TaxProviderPersister was mistakenly not marked @internal
+        preg_quote('CHANGED: Shopware\Core\Framework\App\Lifecycle\Persister\TaxProviderPersister was marked "@internal"', '/'),
+        preg_quote('REMOVED: Method Shopware\Core\Framework\App\Lifecycle\Persister\TaxProviderPersister#updateTaxProviders() was removed', '/'),
 
-        // Removing empty constructor methods should not be a BC break
-        preg_quote('REMOVED: Method Shopware\Core\Framework\DataAbstractionLayer\Attribute\AllowEmptyString#__construct() was removed', '/'),
-        preg_quote('REMOVED: Method Shopware\Core\Framework\DataAbstractionLayer\Attribute\Required#__construct() was removed', '/'),
-        preg_quote('REMOVED: Method Shopware\Core\Framework\DataAbstractionLayer\Attribute\PrimaryKey#__construct() was removed', '/'),
+        // Constants should be `float` to reflect the expected type
+        preg_quote('CHANGED: Value of constant Shopware\Core\Framework\DataAbstractionLayer\Field\Flag\SearchRanking::', '/'),
 
-        // The rule class is declared @final, and its constructor is marked as @internal.
-        preg_quote('REMOVED: Property Shopware\Core\Framework\Rule\Container\MatchAllLineItemsRule#$type was removed', '/'),
+        // Return type is still of type "self" but more specific. Could never be something different from the InvalidSortQueryException, so this should be fine
+        'CHANGED: The return type of Shopware\\\\Core\\\\Framework\\\\DataAbstractionLayer\\\\DataAbstractionLayerException.* changed from self to (?:the non-covariant )?Shopware\\\\Core\\\\Framework\\\\DataAbstractionLayer\\\\Exception\\\\InvalidSortQueryException',
 
-        // The classes were never properly released and are not use.
-        preg_quote('REMOVED: Class Shopware\Core\System\Snippet\Struct\Language has been deleted', '/'),
-        preg_quote('REMOVED: Class Shopware\Core\System\Snippet\Struct\SnippetPaths has been deleted', '/'),
-        preg_quote('CHANGED: Type of property Shopware\Core\System\Snippet\Struct\TranslationConfig#$repositoryUrl changed from string to GuzzleHttp\Psr7\Uri', '/'),
-        preg_quote('CHANGED: Type of property Shopware\Core\System\Snippet\Struct\TranslationConfig#$languages changed from Shopware\Core\System\Snippet\Struct\LanguageCollection to Shopware\Core\System\Snippet\DataTransfer\Language\LanguageCollection', '/'),
-        preg_quote('CHANGED: Type of property Shopware\Core\System\Snippet\Struct\TranslationConfig#$pluginMapping changed from array to Shopware\Core\System\Snippet\DataTransfer\PluginMapping\PluginMappingCollection', '/'),
-        preg_quote('ADDED: Parameter previous was added to Method translationConfigurationFileDoesNotExist() of class Shopware\Core\System\Snippet\SnippetException', '/'),
+        // minor library update, no break
+        preg_quote(' OpenSearch\Client', '/'),
+        // widening input argument in exception factory, no break
+        preg_quote('CHANGED: The parameter $previous of Shopware\Elasticsearch\Product\ElasticsearchProductException::cannotChangeFieldType() changed from OpenSearch\Common\Exceptions\BadRequest400Exception to OpenSearch\Common\Exceptions\BadRequest400Exception|OpenSearch\Exception\BadRequestHttpException', '/'),
+        preg_quote('CHANGED: The parameter $previous of Shopware\Elasticsearch\Product\ElasticsearchProductException::cannotChangeCustomFieldType() changed from OpenSearch\Common\Exceptions\BadRequest400Exception to OpenSearch\Common\Exceptions\BadRequest400Exception|OpenSearch\Exception\BadRequestHttpException', '/'),
+        // constructor changes of internal decorator, no break
+        preg_quote('ADDED: Parameter transport was added to Method __construct() of class Shopware\Elasticsearch\Profiler\ClientProfiler', '/'),
+        preg_quote('CHANGED: Parameter 0 of Shopware\Elasticsearch\Profiler\ClientProfiler#__construct() changed name from client to transport', '/'),
 
-        // The constants were not aligned with the max length constants from the customer definition.
-        preg_quote('CHANGED: Value of constant Shopware\Core\Checkout\Order\Aggregate\OrderAddress\OrderAddressDefinition::MAX_LENGTH_FIRST_NAME changed from 50 to 255', '/'),
-        preg_quote('CHANGED: Value of constant Shopware\Core\Checkout\Order\Aggregate\OrderAddress\OrderAddressDefinition::MAX_LENGTH_LAST_NAME changed from 60 to 255', '/'),
-        preg_quote('CHANGED: Value of constant Shopware\Core\Checkout\Customer\Aggregate\CustomerAddress\CustomerAddressDefinition::MAX_LENGTH_FIRST_NAME changed from 50 to 255', '/'),
-        preg_quote('CHANGED: Value of constant Shopware\Core\Checkout\Customer\Aggregate\CustomerAddress\CustomerAddressDefinition::MAX_LENGTH_LAST_NAME changed from 60 to 255', '/'),
+        /** Internal annotation on {@see SwTwigFunction} was not recognized correctly */
+        preg_quote('CHANGED: Shopware\Core\Framework\Adapter\Twig\SwTwigFunction was marked "@internal"', '/'),
+        preg_quote('REMOVED: Method Shopware\Core\Framework\Adapter\Twig\SwTwigFunction::escapeFilter() was removed', '/'),
+        preg_quote('REMOVED: Method Shopware\Core\Framework\Adapter\Twig\SwTwigFunction::resetEscapeCache() was removed', '/'),
 
-        preg_quote('Shopware\Core\Framework\App\AppException', '/'),
-        preg_quote('Shopware\Core\Service\ServiceException', '/'),
+        // The implemented Twig extension contract already documents this as array<NodeVisitorInterface>
+        preg_quote('CHANGED: The return type of Twig\Extension\AbstractExtension#getNodeVisitors() changed from no type to array', '/'),
 
-        // Moved endpoint to Shopware\Core\Framework\Sso\Controller\SsoController to not have a hard dependency between admin and core packages
-        // It was never intended to be used outside of SaaS in its initial release (still marked experimental / internal everywhere else, only this one method was forgotten)
-        preg_quote('REMOVED: Method Shopware\Administration\Controller\AdministrationController#ssoAuth() was removed', '/'),
+        // MailDataSimulatorFieldEvent no longer exposes Faker in the runtime simulate feature
+        preg_quote('REMOVED: Property Shopware\Core\Content\MailTemplate\Service\Event\MailDataSimulatorFieldEvent#$faker was removed', '/'),
+        preg_quote('REMOVED: Parameter faker was removed from Method Shopware\Core\Content\MailTemplate\Service\Event\MailDataSimulatorFieldEvent::__construct()', '/'),
 
-        // The "parts" arrays of these events could contain values that are not correctly represented in the getter and add methods. Those are necessary fixes, otherwise type errors will occur.
-        preg_quote('CHANGED: The return type of Shopware\Core\Framework\Adapter\Cache\Event\HttpCacheKeyEvent#get() changed from string', '/'),
-        preg_quote('CHANGED: The return type of Shopware\Core\Framework\Adapter\Cache\Event\HttpCacheCookieEvent#get() changed from string|null', '/'),
-        preg_quote('CHANGED: The parameter $value of Shopware\Core\Framework\Adapter\Cache\Event\HttpCacheCookieEvent#add() changed from string', '/'),
+        // Optional parameter added with default null; existing callers are unaffected
+        preg_quote('ADDED: Parameter introducedIn was added to Method triggerDeprecationOrThrow() of class Shopware\Core\Framework\Feature', '/'),
 
-        // The property was wrongly added as it introduced a dependency on the Storefront package
-        preg_quote('REMOVED: Property Shopware\Core\Content\Media\MediaEntity#$themes was removed', '/'),
-        preg_quote('REMOVED: Method Shopware\Core\Content\Media\MediaEntity#getThemes() was removed', '/'),
-        preg_quote('REMOVED: Method Shopware\Core\Content\Media\MediaEntity#setThemes() was removed', '/'),
+        // Rule classes are tagged @final
+        preg_quote('CHANGED: Type of property Shopware\Core\Checkout\Customer\Rule\CustomerBirthdayRule#$birthday changed from string|null to string|array|null', '/'),
+        preg_quote('CHANGED: Type of property Shopware\Core\Checkout\Cart\Rule\LineItemReleaseDateRule#$lineItemReleaseDate changed from string|null to string|array|null', '/'),
+        preg_quote('CHANGED: Type of property Shopware\Core\Checkout\Cart\Rule\LineItemCreationDateRule#$lineItemCreationDate changed from string|null to string|array|null', '/'),
 
-        // Constants were introduced in the same release cycle
-        preg_quote('REMOVED: Constant Shopware\Core\System\Snippet\SnippetValidator::LOCALE_PATTERN_BCP47_ISO639_1 was removed', '/'),
-        preg_quote('REMOVED: Constant Shopware\Core\System\Snippet\SnippetValidator::SNIPPET_FILE_PATTERN was removed', '/'),
-
-        // Domain exceptions should not be extended in 3rd party code
-        preg_quote('ADDED: Parameter domain was added to Method invalidDomain() of class Shopware\Core\System\SystemConfig\SystemConfigException', '/'),
+        // Contravariant widening so the filter also accepts PartialEntity media from partial listing loading
+        preg_quote('The parameter $media of Shopware\Storefront\Framework\Twig\Extension\UrlEncodingTwigFilter#encodeMediaUrl() changed from', '/'),
     ],
 ];

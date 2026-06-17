@@ -70,6 +70,8 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
         'reason:remove-constraint-annotation',
         // Container factory for deprecated service
         'reason:factory-for-deprecation',
+        // Rules still need to be called for rule evaluation, therefore they do not trigger deprecations.
+        'reason:remove-rule',
     ];
 
     public function getNodeType(): string
@@ -79,6 +81,10 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
 
     public function processNode(Node $node, Scope $scope): array
     {
+        if (!($node->isPublic() || $node->isProtected()) || $node->isAbstract() || $node->isMagic()) {
+            return [];
+        }
+
         if (!$scope->isInClass()) {
             return [];
         }
@@ -89,12 +95,10 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
             return [];
         }
 
-        if (!($node->isPublic() || $node->isProtected()) || $node->isAbstract() || $node->isMagic()) {
-            return [];
-        }
-
-        $methodContent = $this->getMethodContent($node, $scope, $class);
         $method = $class->getMethod($node->name->name, $scope);
+
+        // reading the method content requires file I/O, so only do it when a deprecation is present
+        $methodContent = fn (): string => $this->getMethodContent($node, $scope, $class);
 
         $classDeprecation = $class->getDeprecatedDescription();
         if ($classDeprecation && !$this->handlesDeprecationCorrectly($classDeprecation, $methodContent)) {
@@ -155,7 +159,10 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
         return $content;
     }
 
-    private function handlesDeprecationCorrectly(string $deprecation, string $method): bool
+    /**
+     * @param \Closure(): string $methodContent
+     */
+    private function handlesDeprecationCorrectly(string $deprecation, \Closure $methodContent): bool
     {
         foreach (self::RULE_EXCEPTIONS as $exception) {
             if (\str_contains($deprecation, $exception)) {
@@ -163,7 +170,7 @@ class DeprecatedMethodsThrowDeprecationRule implements Rule
             }
         }
 
-        return \str_contains($method, 'Feature::triggerDeprecationOrThrow(');
+        return \str_contains($methodContent(), 'Feature::triggerDeprecationOrThrow(');
     }
 
     private function isTestClass(ClassReflection $class): bool

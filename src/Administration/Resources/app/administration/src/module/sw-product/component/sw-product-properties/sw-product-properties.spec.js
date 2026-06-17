@@ -1,3 +1,5 @@
+/* eslint-disable sw-test-rules/test-file-max-lines-warning */
+
 /**
  * @sw-package inventory
  */
@@ -6,6 +8,7 @@ import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 
 const { Store } = Shopware;
+const { cloneDeep } = Shopware.Utils.object;
 
 let productPropertiesMock = [
     { id: '01', groupId: 'sizeId', name: '30' },
@@ -106,8 +109,8 @@ async function createWrapper() {
                                 @click="onClickRemoveInheritance">
                             </div>
                             <div v-else
-                                 class="sw-inheritance-switch--is-not-inherited"
-                                 @click="onClickRestoreInheritance">
+                                class="sw-inheritance-switch--is-not-inherited"
+                                @click="onClickRestoreInheritance">
                             </div>
                         </div>`,
                     methods: {
@@ -143,6 +146,32 @@ async function createWrapper() {
                         </div>
                     `,
                 },
+                'mt-empty-state': {
+                    props: [
+                        'headline',
+                        'description',
+                    ],
+                    template: `
+                        <div class="mt-empty-state">
+                            <div class="mt-empty-state__headline">{{ headline }}</div>
+                            <div
+                                v-if="description"
+                                class="mt-empty-state__description"
+                            >
+                                {{ description }}
+                            </div>
+                            <slot name="button"></slot>
+                        </div>
+                    `,
+                },
+                'mt-button': {
+                    props: ['disabled'],
+                    template: `
+                        <button :disabled="disabled">
+                            <slot></slot>
+                        </button>
+                    `,
+                },
                 'sw-entity-listing': {
                     props: ['items'],
                     methods: {
@@ -156,14 +185,6 @@ async function createWrapper() {
                         </div>
                     `,
                 },
-                'sw-empty-state': {
-                    template: `
-                        <div class="sw-empty-state">
-                            <slot></slot>
-                            <slot name="actions"></slot>
-                        </div>
-                    `,
-                },
                 'sw-product-add-properties-modal': true,
                 'sw-loader': true,
                 'sw-simple-search-field': true,
@@ -173,6 +194,15 @@ async function createWrapper() {
             provide: {
                 repositoryFactory: {
                     create: () => repositoryFactoryCreateResult,
+                },
+            },
+            mocks: {
+                $route: {
+                    meta: {
+                        $module: {
+                            icon: 'regular-content',
+                        },
+                    },
                 },
             },
         },
@@ -346,7 +376,10 @@ describe('src/module/sw-product/component/sw-product-properties', () => {
         await wrapper.vm.getGroupIds();
         await wrapper.vm.getProperties();
 
+        const getPropertiesSpy = jest.spyOn(wrapper.vm, 'getProperties').mockImplementation(() => Promise.resolve());
+
         wrapper.vm.onDeleteProperty(propertiesMock[0]);
+        await nextTick();
 
         expect(wrapper.vm.productProperties).toEqual(
             expect.arrayContaining([
@@ -362,7 +395,10 @@ describe('src/module/sw-product/component/sw-product-properties', () => {
                 }),
             ]),
         );
+        expect(getPropertiesSpy).toHaveBeenCalled();
+
         wrapper.vm.propertyGroupRepository.search.mockRestore();
+        getPropertiesSpy.mockRestore();
     });
 
     it('should delete properties successful', async () => {
@@ -370,7 +406,6 @@ describe('src/module/sw-product/component/sw-product-properties', () => {
         const wrapper = await createWrapper();
         await flushPromises();
 
-        await wrapper.setData({ $refs: $refsMock });
         wrapper.vm.propertyGroupRepository.search = jest.fn(() => {
             return Promise.resolve(propertiesMock);
         });
@@ -379,7 +414,10 @@ describe('src/module/sw-product/component/sw-product-properties', () => {
         await wrapper.vm.getGroupIds();
         await wrapper.vm.getProperties();
 
+        const getPropertiesSpy = jest.spyOn(wrapper.vm, 'getProperties').mockImplementation(() => Promise.resolve());
+
         wrapper.vm.onDeleteProperties();
+        await nextTick();
 
         expect(wrapper.vm.productProperties).toEqual(
             expect.arrayContaining([
@@ -395,7 +433,10 @@ describe('src/module/sw-product/component/sw-product-properties', () => {
                 }),
             ]),
         );
+        expect(getPropertiesSpy).toHaveBeenCalled();
+
         wrapper.vm.propertyGroupRepository.search.mockRestore();
+        getPropertiesSpy.mockRestore();
     });
 
     it('should get properties when changing search term', async () => {
@@ -646,5 +687,33 @@ describe('src/module/sw-product/component/sw-product-properties', () => {
 
         expect(wrapper.vm.turnOffAddPropertiesModal).toHaveBeenCalledTimes(1);
         expect(callbackUpdateCurrentValuesMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('should render custom empty-state copy when provided', async () => {
+        global.activeAclRoles = [];
+
+        const wrapper = await createWrapper();
+        await flushPromises();
+
+        const emptyPropertiesProductMock = cloneDeep(productMock);
+        const emptyPropertiesParentProductMock = cloneDeep(parentProductMock);
+
+        emptyPropertiesProductMock.properties = [];
+        emptyPropertiesParentProductMock.properties = [];
+
+        Store.get('swProductDetail').product = emptyPropertiesProductMock;
+        Store.get('swProductDetail').parentProduct = emptyPropertiesParentProductMock;
+
+        await wrapper.setProps({
+            emptyStateTitle: 'bulk-edit.emptyStateTitle',
+            emptyStateDescription: 'bulk-edit.emptyStateDescription',
+        });
+
+        await wrapper.vm.getGroupIds();
+        await wrapper.vm.getProperties();
+        await flushPromises();
+
+        expect(wrapper.find('.mt-empty-state__headline').text()).toBe('bulk-edit.emptyStateTitle');
+        expect(wrapper.find('.mt-empty-state__description').text()).toBe('bulk-edit.emptyStateDescription');
     });
 });

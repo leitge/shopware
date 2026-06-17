@@ -76,6 +76,143 @@ class ElasticsearchProductDefinitionTest extends TestCase
         ],
     ];
 
+    private const TRANSLATABLE_EXACT_TECHNICAL_SEARCHABLE_MAPPING = [
+        'properties' => [
+            'lang_en' => [
+                'type' => 'keyword',
+                'ignore_above' => 10000,
+                'normalizer' => 'sw_lowercase_normalizer',
+                'fields' => [
+                    'exact' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_whitespace_analyzer',
+                        'search_analyzer' => 'sw_whitespace_analyzer',
+                        'norms' => false,
+                    ],
+                    'search' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_english_technical_term_index_analyzer',
+                        'search_analyzer' => 'sw_english_technical_term_search_analyzer',
+                    ],
+                    'ngram' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_ngram_analyzer',
+                    ],
+                ],
+            ],
+            'lang_de' => [
+                'type' => 'keyword',
+                'ignore_above' => 10000,
+                'normalizer' => 'sw_lowercase_normalizer',
+                'fields' => [
+                    'exact' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_whitespace_analyzer',
+                        'search_analyzer' => 'sw_whitespace_analyzer',
+                        'norms' => false,
+                    ],
+                    'search' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_german_technical_term_index_analyzer',
+                        'search_analyzer' => 'sw_german_technical_term_search_analyzer',
+                    ],
+                    'ngram' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_ngram_analyzer',
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    private const TRANSLATABLE_EXACT_TECHNICAL_SEARCHABLE_LENGTH_NORM_MAPPING = [
+        'properties' => [
+            'lang_en' => [
+                'type' => 'keyword',
+                'ignore_above' => 10000,
+                'normalizer' => 'sw_lowercase_normalizer',
+                'fields' => [
+                    'exact' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_whitespace_analyzer',
+                        'search_analyzer' => 'sw_whitespace_analyzer',
+                        'norms' => false,
+                    ],
+                    'search' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_english_technical_term_index_analyzer',
+                        'search_analyzer' => 'sw_english_technical_term_search_analyzer',
+                        'similarity' => 'sw_length_norm',
+                    ],
+                    'ngram' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_ngram_analyzer',
+                    ],
+                ],
+            ],
+            'lang_de' => [
+                'type' => 'keyword',
+                'ignore_above' => 10000,
+                'normalizer' => 'sw_lowercase_normalizer',
+                'fields' => [
+                    'exact' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_whitespace_analyzer',
+                        'search_analyzer' => 'sw_whitespace_analyzer',
+                        'norms' => false,
+                    ],
+                    'search' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_german_technical_term_index_analyzer',
+                        'search_analyzer' => 'sw_german_technical_term_search_analyzer',
+                        'similarity' => 'sw_length_norm',
+                    ],
+                    'ngram' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_ngram_analyzer',
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    private const TRANSLATABLE_SEARCHABLE_LENGTH_NORM_MAPPING = [
+        'properties' => [
+            'lang_en' => [
+                'type' => 'keyword',
+                'ignore_above' => 10000,
+                'normalizer' => 'sw_lowercase_normalizer',
+                'fields' => [
+                    'search' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_english_analyzer',
+                        'similarity' => 'sw_length_norm',
+                    ],
+                    'ngram' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_ngram_analyzer',
+                    ],
+                ],
+            ],
+            'lang_de' => [
+                'type' => 'keyword',
+                'ignore_above' => 10000,
+                'normalizer' => 'sw_lowercase_normalizer',
+                'fields' => [
+                    'search' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_german_analyzer',
+                        'similarity' => 'sw_length_norm',
+                    ],
+                    'ngram' => [
+                        'type' => 'text',
+                        'analyzer' => 'sw_ngram_analyzer',
+                    ],
+                ],
+            ],
+        ],
+    ];
+
     private const SEARCHABLE_MAPPING = [
         'type' => 'keyword',
         'ignore_above' => 10000,
@@ -84,6 +221,29 @@ class ElasticsearchProductDefinitionTest extends TestCase
             'search' => [
                 'type' => 'text',
                 'analyzer' => 'sw_whitespace_analyzer',
+            ],
+            'ngram' => [
+                'type' => 'text',
+                'analyzer' => 'sw_ngram_analyzer',
+            ],
+        ],
+    ];
+
+    private const EXACT_TECHNICAL_SEARCHABLE_MAPPING = [
+        'type' => 'keyword',
+        'ignore_above' => 10000,
+        'normalizer' => 'sw_lowercase_normalizer',
+        'fields' => [
+            'exact' => [
+                'type' => 'text',
+                'analyzer' => 'sw_whitespace_analyzer',
+                'search_analyzer' => 'sw_whitespace_analyzer',
+                'norms' => false,
+            ],
+            'search' => [
+                'type' => 'text',
+                'analyzer' => 'sw_whitespace_technical_term_index_analyzer',
+                'search_analyzer' => 'sw_whitespace_technical_term_search_analyzer',
             ],
             'ngram' => [
                 'type' => 'text',
@@ -151,11 +311,22 @@ class ElasticsearchProductDefinitionTest extends TestCase
             'properties' => [
                 'id' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'parentId' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
+                'parent' => [
+                    'type' => 'nested',
+                    'properties' => [
+                        'id' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
+                        '_count' => [
+                            'type' => 'long',
+                        ],
+                        'name' => self::TRANSLATABLE_EXACT_TECHNICAL_SEARCHABLE_MAPPING,
+                    ],
+                ],
                 'categoryTree' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'categoryIds' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'propertyIds' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'optionIds' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'tagIds' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
+                'streamIds' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'active' => [
                     'type' => 'boolean',
                 ],
@@ -190,12 +361,12 @@ class ElasticsearchProductDefinitionTest extends TestCase
                 'autoIncrement' => [
                     'type' => 'long',
                 ],
-                'manufacturerNumber' => self::SEARCHABLE_MAPPING,
-                'description' => self::TRANSLATABLE_SEARCHABLE_MAPPING,
+                'manufacturerNumber' => self::EXACT_TECHNICAL_SEARCHABLE_MAPPING,
+                'description' => self::TRANSLATABLE_SEARCHABLE_LENGTH_NORM_MAPPING,
                 'metaTitle' => self::TRANSLATABLE_SEARCHABLE_MAPPING,
-                'metaDescription' => self::TRANSLATABLE_SEARCHABLE_MAPPING,
+                'metaDescription' => self::TRANSLATABLE_SEARCHABLE_LENGTH_NORM_MAPPING,
                 'displayGroup' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
-                'ean' => self::SEARCHABLE_MAPPING,
+                'ean' => self::EXACT_TECHNICAL_SEARCHABLE_MAPPING,
                 'height' => [
                     'type' => 'double',
                 ],
@@ -215,7 +386,7 @@ class ElasticsearchProductDefinitionTest extends TestCase
                 'markAsTopseller' => [
                     'type' => 'boolean',
                 ],
-                'name' => self::TRANSLATABLE_SEARCHABLE_MAPPING,
+                'name' => self::TRANSLATABLE_EXACT_TECHNICAL_SEARCHABLE_MAPPING,
                 'options' => [
                     'type' => 'nested',
                     'properties' => [
@@ -227,7 +398,7 @@ class ElasticsearchProductDefinitionTest extends TestCase
                         ],
                     ],
                 ],
-                'productNumber' => self::SEARCHABLE_MAPPING,
+                'productNumber' => self::EXACT_TECHNICAL_SEARCHABLE_MAPPING,
                 'properties' => [
                     'type' => 'nested',
                     'properties' => [
@@ -315,7 +486,8 @@ class ElasticsearchProductDefinitionTest extends TestCase
                         ],
                     ],
                 ],
-                'customSearchKeywords' => self::TRANSLATABLE_SEARCHABLE_MAPPING,
+                'customSearchKeywords' => self::TRANSLATABLE_EXACT_TECHNICAL_SEARCHABLE_LENGTH_NORM_MAPPING,
+                'type' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'states' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'manufacturerId' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
                 'deliveryTimeId' => AbstractElasticsearchDefinition::KEYWORD_FIELD,
@@ -362,6 +534,7 @@ class ElasticsearchProductDefinitionTest extends TestCase
         if (Feature::isActive('v6.8.0.0')) {
             unset($expectedMapping['properties']['visibilities']);
             unset($expectedMapping['properties']['categoriesRo']);
+            unset($expectedMapping['properties']['states']);
         }
         static::assertEquals($expectedMapping, $definition->getMapping(Context::createDefaultContext()));
     }
@@ -614,6 +787,14 @@ class ElasticsearchProductDefinitionTest extends TestCase
             $document['propertyIds']
         );
 
+        static::assertSame(
+            [
+                '8a31464f3686451aad355aa21a3eab38',
+                '9b42575f4797562bbe466bb32b4fbc49',
+            ],
+            $document['streamIds']
+        );
+
         if (Feature::isActive('v6.8.0.0')) {
             static::assertArrayHasKey('visibility_sc-1', $document);
             static::assertArrayHasKey('visibility_sc-2', $document);
@@ -850,6 +1031,49 @@ class ElasticsearchProductDefinitionTest extends TestCase
         static::assertCount(1, $document['productNumber']);
     }
 
+    public function testParentContainsParentName(): void
+    {
+        $registry = $this->getDefinitionRegistry();
+        $definition = $registry->get(ProductDefinition::class);
+        static::assertInstanceOf(ProductDefinition::class, $definition);
+
+        $salesChannelLanguageLoader = new StaticSalesChannelLanguageLoader([
+            Defaults::LANGUAGE_SYSTEM => [TestDefaults::SALES_CHANNEL],
+        ]);
+
+        $connection = $this->getConnectionWithProductData(
+            productNumber: 'PRODUCT-123',
+            parentProductNumber: 'PARENT-456',
+            name: 'Child Product',
+            parentName: 'Parent Product'
+        );
+        $definition = new ElasticsearchProductDefinition(
+            $definition,
+            $connection,
+            $this->createMock(ProductSearchQueryBuilder::class),
+            $this->createMock(ElasticsearchFieldBuilder::class),
+            $this->createMock(ElasticsearchFieldMapper::class),
+            $salesChannelLanguageLoader,
+            false,
+            'dev',
+            $this->createMock(LanguageLoaderInterface::class)
+        );
+
+        $uuid = $this->ids->get('product-1');
+        $documents = $definition->fetch([$uuid], Context::createDefaultContext());
+        static::assertArrayHasKey($uuid, $documents);
+
+        $document = $documents[$uuid];
+
+        static::assertArrayHasKey('parent', $document);
+        static::assertArrayHasKey('name', $document['parent']);
+        static::assertArrayHasKey(Defaults::LANGUAGE_SYSTEM, $document['parent']['name']);
+        static::assertSame(
+            'Parent Product',
+            $document['parent']['name'][Defaults::LANGUAGE_SYSTEM]
+        );
+    }
+
     private function getConnection(int $numberOfTranslations = 1): MockObject&Connection
     {
         $connection = $this->createMock(Connection::class);
@@ -887,6 +1111,12 @@ class ElasticsearchProductDefinitionTest extends TestCase
                     'visibilities' => '[{"visibility": 20, "salesChannelId": "sc-2"}, {"visibility": 20, "salesChannelId": "sc-2"}, {"visibility": 20, "salesChannelId": "sc-2"}, {"visibility": 30, "salesChannelId": "sc-1"}, {"visibility": 30, "salesChannelId": "sc-1"}, {"visibility": 20, "salesChannelId": "sc-2"}]',
                     'propertyIds' => '["809c1844f4734243b6aa04aba860cd45", "e4a08f9dd88f4a228240de7107e4ae4b"]',
                     'optionIds' => '["809c1844f4734243b6aa04aba860cd45", "e4a08f9dd88f4a228240de7107e4ae4b"]',
+                    'streamIds' => '["8a31464f3686451aad355aa21a3eab38", "9b42575f4797562bbe466bb32b4fbc49"]',
+                    'tagIds' => '["c3f9a1e2b5d64a8e9f7c3b2a1e5d4c8b", "d4e8b2f1c5a64d9e8c7b3a2f1e5d4c9a"]',
+                    'categoryIds' => '["7f8d9e2c4b5a64f9e8d7c6b5a4e3d2c1", "8e9f3d4c5a6b7e8d9c7f6e5d4c3b2a1f"]',
+                    'categoryTree' => '["7f8d9e2c4b5a64f9e8d7c6b5a4e3d2c1", "8e9f3d4c5a6b7e8d9c7f6e5d4c3b2a1f"]',
+                    'type' => ProductDefinition::TYPE_PHYSICAL,
+                    'states' => '["9f7e6d5c4b3a2e1d9c8b7a6f5e4d3c2b"]',
                 ],
             ],
         ];
@@ -939,8 +1169,12 @@ class ElasticsearchProductDefinitionTest extends TestCase
         return $connection;
     }
 
-    private function getConnectionWithProductData(string $productNumber, ?string $parentProductNumber): MockObject&Connection
-    {
+    private function getConnectionWithProductData(
+        string $productNumber,
+        ?string $parentProductNumber,
+        string $name = 'Test Product',
+        ?string $parentName = null
+    ): MockObject&Connection {
         $connection = $this->createMock(Connection::class);
 
         $baseProductData = [
@@ -975,11 +1209,13 @@ class ElasticsearchProductDefinitionTest extends TestCase
             'visibilities' => '[{"visibility": 20, "salesChannelId": "sc-2"}]',
             'propertyIds' => '[]',
             'optionIds' => '[]',
+            'type' => ProductDefinition::TYPE_PHYSICAL,
         ];
 
         $translationData = [
             'id' => $this->ids->get('product-1'),
-            'name' => 'Test Product',
+            'name' => $name,
+            'parentName' => $parentName,
             'customFields' => '{}',
             'manufacturerName' => 'Test Manufacturer',
             'categories' => '[]',

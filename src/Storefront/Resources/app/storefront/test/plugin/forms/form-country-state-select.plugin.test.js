@@ -44,7 +44,7 @@ describe('Form country state select plugin', () => {
                     countryId: '31e1ac8809c744c38c4d99bfe9a50aa8',
                     states: [{ id: '0490081418be4255b87731afc953e901', translated: { name: 'Hamburg' }}],
                 }),
-            })
+            }),
         );
 
         window.formValidation = new FormValidation();
@@ -322,7 +322,7 @@ describe('Form country state select plugin', () => {
                     countryId: '31e1ac8809c744c38c4d99bfe9a50aa8',
                     states: [{ id: '0490081418be4255b87731afc953e901', translated: { name: 'Hamburg' }}],
                 }),
-            })
+            }),
         );
 
         const plugin = createPlugin();
@@ -335,6 +335,66 @@ describe('Form country state select plugin', () => {
         plugin.requestStateData('31e1ac8809c744c38c4d99bfe9a50aa8', '0490081418be4255b87731afc953e901', true);
 
         expect(stateLabel.innerHTML.includes('form-required-label')).toBe(true);
+    });
+
+    it('should hide country state select when country disables state display', async () => {
+        template = `
+            <form id="registerForm" action="/register" method="post" data-country-state-select="true">
+                <select class="country-select" data-initial-country-id="DE">
+                    <option selected="selected" value="DE" data-display-state-in-registration="">Germany</option>
+                </select>
+
+                <div class="form-group">
+                    <label class="form-label" for="addressCountryState">State</label>
+                    <select class="country-state-select" id="addressCountryState" data-initial-country-state-id="">
+                        <option data-placeholder-option="true">Select state..</option>
+                    </select>
+                </div>
+            </form>
+        `;
+
+        document.body.innerHTML = template;
+
+        createPlugin();
+        await new Promise(process.nextTick);
+
+        const stateSelect = document.querySelector('.country-state-select');
+
+        expect(stateSelect.parentNode.classList.contains('d-none')).toBe(true);
+        expect(stateSelect.hasAttribute('disabled')).toBe(true);
+        expect(stateSelect.querySelectorAll('option:not([data-placeholder-option])')).toHaveLength(0);
+        expect(stateSelect.hasAttribute('aria-required')).toBe(false);
+    });
+
+    it('should show country state select when state is required even if country disables state display', async () => {
+        template = `
+            <form id="registerForm" action="/register" method="post" data-country-state-select="true">
+                <select class="country-select" data-initial-country-id="DE">
+                    <option selected="selected" value="DE" data-state-required="1" data-display-state-in-registration="">Germany</option>
+                </select>
+
+                <div class="form-group d-none">
+                    <label class="form-label" for="addressCountryState">State</label>
+                    <select class="country-state-select" id="addressCountryState" data-initial-country-state-id="">
+                        <option data-placeholder-option="true">Select state..</option>
+                    </select>
+                </div>
+            </form>
+        `;
+
+        document.body.innerHTML = template;
+
+        createPlugin();
+        await new Promise(process.nextTick);
+
+        const stateSelect = document.querySelector('.country-state-select');
+        const placeholder = stateSelect.querySelector('[data-placeholder-option]');
+
+        expect(stateSelect.parentNode.classList.contains('d-none')).toBe(false);
+        expect(stateSelect.hasAttribute('disabled')).toBe(false);
+        expect(stateSelect.querySelectorAll('option:not([data-placeholder-option])')).toHaveLength(1);
+        expect(stateSelect.hasAttribute('aria-required')).toBe(true);
+        expect(placeholder.hasAttribute('disabled')).toBe(true);
     });
 
     it('should update VAT ID field to required when different shipping address is selected', async () => {
@@ -442,5 +502,70 @@ describe('Form country state select plugin', () => {
 
         expect(vatIdInput.hasAttribute('aria-required')).toBe(false);
         expect(vatIdFieldLabel.innerHTML.includes('form-required-label')).toBe(false);
+    });
+
+    it('should call update field/select methods with booleans for required parameters', async () => {
+        template = `
+            <form id="registerForm" class="register-shipping" action="/register" method="post">
+
+                <div class="form-group col-md-6">
+                    <label class="form-label" for="vatIds">VAT Reg.No.</label>
+                    <input type="text" name="vatIds[]" id="vatIds" class="form-name">
+                </div>
+
+                <div class="form-group col-md-6">
+                    <label class="form-label" for="addressCountry">Country</label>
+                    <select class="country-select" id="addressCountry" data-initial-country-id="NE">
+                        <option data-placeholder-option="true" disabled="disabled" value="">Select country...</option>
+                        <option selected="selected" value="NE" data-vat-id-required="1" data-state-required="1" data-zipcode-required="1">Netherlands</option>
+                        <option value="DE" data-vat-id-required data-state-required data-zipcode-required>Germany</option>
+                    </select>
+                </div>
+
+                <div class="form-group col-md-6">
+                    <label class="form-label" for="addressCountryState">State</label>
+                    <select class="country-state-select" id="addressCountryState" data-initial-country-state-id="">
+                        <option data-placeholder-option="true">Select state..</option>
+                    </select>
+                </div>
+            </form>
+        `;
+
+        document.body.innerHTML = template;
+
+        const plugin = createPlugin();
+
+        const updateStateSelectSpy = jest.spyOn(plugin, '_updateStateSelect');
+        const updateZipcodeFieldsSpy = jest.spyOn(plugin, '_updateZipcodeFields');
+        const updateVatIdFieldSpy = jest.spyOn(plugin, '_updateVatIdField');
+
+        plugin.initSelects();
+
+        await new Promise(process.nextTick);
+
+        expect(updateStateSelectSpy).toHaveBeenCalledWith(expect.anything(), true, expect.anything(), true);
+        expect(updateZipcodeFieldsSpy).toHaveBeenCalledWith(expect.anything(), true);
+        expect(updateVatIdFieldSpy).toHaveBeenCalledWith(expect.anything(), true);
+
+        updateStateSelectSpy.mockClear();
+        updateZipcodeFieldsSpy.mockClear();
+        updateVatIdFieldSpy.mockClear();
+
+        const countrySelect = document.querySelector('.country-select');
+
+        countrySelect.value = 'DE';
+        countrySelect.dispatchEvent(new Event('change'));
+
+        await new Promise(process.nextTick);
+
+        expect(updateStateSelectSpy).toHaveBeenCalledWith(expect.anything(), false, null, true);
+        expect(updateZipcodeFieldsSpy).toHaveBeenCalledWith(expect.anything(), false);
+        expect(updateVatIdFieldSpy).toHaveBeenCalledWith(expect.anything(), false);
+
+        updateVatIdFieldSpy.mockClear();
+
+        plugin._onFormFieldToggleChange({ target: { checked: true } });
+
+        expect(updateVatIdFieldSpy).toHaveBeenCalledWith(expect.anything(), false);
     });
 });

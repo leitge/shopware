@@ -29,7 +29,9 @@ use Symfony\Component\HttpFoundation\Response;
 #[Package('checkout')]
 class DownloadRouteTest extends TestCase
 {
-    /** @var MockObject&EntityRepository<OrderLineItemDownloadCollection> */
+    /**
+     * @var MockObject&EntityRepository<OrderLineItemDownloadCollection>
+     */
     private MockObject&EntityRepository $downloadRepository;
 
     private MockObject&DownloadResponseGenerator $downloadResponseGenerator;
@@ -59,8 +61,7 @@ class DownloadRouteTest extends TestCase
 
     public function testCustomerNotLoggedInException(): void
     {
-        static::expectException(CustomerException::class);
-        static::expectExceptionMessage('Customer is not logged in.');
+        $this->expectExceptionObject(CustomerException::customerNotLoggedIn());
 
         $this->downloadRoute->load(new Request(), $this->salesChannelContext);
     }
@@ -87,11 +88,10 @@ class DownloadRouteTest extends TestCase
         $this->downloadRepository->method('search')->willReturn($searchResult);
 
         $request = new Request();
-        $request->request->set('downloadId', 'foo');
-        $request->request->set('orderId', 'bar');
+        $request->attributes->set('downloadId', 'foo');
+        $request->attributes->set('orderId', 'bar');
 
-        static::expectException(CustomerException::class);
-        static::expectExceptionMessage('Line item download file with id "foo" not found.');
+        $this->expectExceptionObject(CustomerException::downloadFileNotFound('foo'));
         $this->downloadRoute->load($request, $this->salesChannelContext);
     }
 
@@ -111,8 +111,8 @@ class DownloadRouteTest extends TestCase
         $this->downloadResponseGenerator->method('getResponse')->willReturn(new Response());
 
         $request = new Request();
-        $request->request->set('downloadId', 'foo');
-        $request->request->set('orderId', 'bar');
+        $request->attributes->set('downloadId', 'foo');
+        $request->attributes->set('orderId', 'bar');
 
         $response = $this->downloadRoute->load($request, $this->salesChannelContext);
         static::assertSame(Response::HTTP_OK, $response->getStatusCode());

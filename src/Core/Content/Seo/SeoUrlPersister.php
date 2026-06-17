@@ -4,6 +4,7 @@ namespace Shopware\Core\Content\Seo;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Psr\Clock\ClockInterface;
 use Shopware\Core\Content\Seo\Event\SeoUrlUpdateEvent;
 use Shopware\Core\Content\Seo\SeoUrl\SeoUrlCollection;
 use Shopware\Core\Content\Seo\SeoUrl\SeoUrlEntity;
@@ -29,7 +30,8 @@ class SeoUrlPersister
     public function __construct(
         private readonly Connection $connection,
         private readonly EntityRepository $seoUrlRepository,
-        private readonly EventDispatcherInterface $eventDispatcher
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -41,7 +43,7 @@ class SeoUrlPersister
     {
         $languageId = $context->getLanguageId();
         $canonicals = $this->findCanonicalPaths($routeName, $languageId, $foreignKeys);
-        $dateTime = (new \DateTimeImmutable())->format(Defaults::STORAGE_DATE_TIME_FORMAT);
+        $dateTime = $this->clock->now()->format(Defaults::STORAGE_DATE_TIME_FORMAT);
         $insertQuery = new MultiInsertQueryQueue($this->connection, 250, false, true);
 
         $updatedFks = [];
@@ -131,7 +133,7 @@ class SeoUrlPersister
         // thereby preserving the canonical SEO URL for Entity A.
         $this->updateCanonicalSeoUrls($inuseSeoUrls, $languageId);
 
-        $this->eventDispatcher->dispatch(new SeoUrlUpdateEvent($updates));
+        $this->eventDispatcher->dispatch(new SeoUrlUpdateEvent($updates, $context));
     }
 
     /**
@@ -201,7 +203,7 @@ class SeoUrlPersister
      */
     private function findInUseCanonicalSeoUrls(array $seoPathInfos, string $languageId, ?string $salesChannelId = null): array
     {
-        if (empty($seoPathInfos)) {
+        if ($seoPathInfos === []) {
             return [];
         }
 
@@ -227,7 +229,7 @@ class SeoUrlPersister
      */
     private function updateCanonicalSeoUrls(array $seoUrls, string $languageId): void
     {
-        if (empty($seoUrls)) {
+        if ($seoUrls === []) {
             return;
         }
 
@@ -258,7 +260,7 @@ class SeoUrlPersister
             }
         }
 
-        if (empty($ids)) {
+        if ($ids === []) {
             return;
         }
 
@@ -274,7 +276,7 @@ class SeoUrlPersister
      */
     private function obsoleteIds(array $ids, ?string $salesChannelId): void
     {
-        if (empty($ids)) {
+        if ($ids === []) {
             return;
         }
 
@@ -291,7 +293,7 @@ class SeoUrlPersister
             $query->setParameter('salesChannelId', Uuid::fromHexToBytes($salesChannelId));
         }
 
-        RetryableQuery::retryable($this->connection, function () use ($query): void {
+        RetryableQuery::retryable($this->connection, static function () use ($query): void {
             $query->executeStatement();
         });
     }
@@ -301,7 +303,7 @@ class SeoUrlPersister
      */
     private function markAsDeleted(bool $deleted, array $ids, ?string $salesChannelId): void
     {
-        if (empty($ids)) {
+        if ($ids === []) {
             return;
         }
 

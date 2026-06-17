@@ -9,17 +9,17 @@ test ('As a customer, I can request a new password with existing customer email 
     const customer = await TestDataService.createCustomer();
     await test.step('Navigate to the login page and click on forgot password', async () => {
         await ShopCustomer.goesTo(StorefrontAccountLogin.url());
-        await StorefrontAccountLogin.forgotPasswordLink.click();
+        await ShopCustomer.presses(StorefrontAccountLogin.forgotPasswordLink);
     });
 
     await test.step('Fill in the customer email and request a password reset', async () => {
-        await StorefrontAccountRecover.emailInput.fill(customer.email);
-        await StorefrontAccountRecover.requestEmailButton.click();
+        await ShopCustomer.fillsIn(StorefrontAccountRecover.emailInput, customer.email);
+        await ShopCustomer.presses(StorefrontAccountRecover.requestEmailButton);
     });
 
     await test.step('Verify the password reset email sent message and navigate back to login', async () => {
         await ShopCustomer.expects(StorefrontAccountRecover.passwordResetEmailSentMessage).toBeVisible();
-        await StorefrontAccountRecover.backButton.click();
+        await ShopCustomer.presses(StorefrontAccountRecover.backButton);
         await ShopCustomer.expects(StorefrontAccountLogin.loginButton).toBeVisible();
     });
 });
@@ -29,19 +29,21 @@ test ('As a customer, I can request a new password without existing customer ema
    StorefrontAccountLogin,
    StorefrontAccountRecover,
 }) => {
+    const uniqueEmail = `forgot-password-${test.info().repeatEachIndex}-${test.info().retry}-${Date.now()}@email.net`;
+    
     await test.step('Navigate to login page and initiate password recovery', async () => {
         await ShopCustomer.goesTo(StorefrontAccountLogin.url());
-        await StorefrontAccountLogin.forgotPasswordLink.click();
+        await ShopCustomer.presses(StorefrontAccountLogin.forgotPasswordLink);
     });
 
     await test.step('Attempt to request password reset without entering an email', async () => {
-        await StorefrontAccountRecover.requestEmailButton.click();
+        await ShopCustomer.presses(StorefrontAccountRecover.requestEmailButton);
         await ShopCustomer.expects(StorefrontAccountRecover.passwordResetEmailSentMessage).not.toBeVisible();
     });
 
     await test.step('Request password reset with a non-existing email', async () => {
-        await StorefrontAccountRecover.emailInput.fill('test-forgot-password-non-existing@email.net');
-        await StorefrontAccountRecover.requestEmailButton.click();
+        await ShopCustomer.fillsIn(StorefrontAccountRecover.emailInput, uniqueEmail);
+        await ShopCustomer.presses(StorefrontAccountRecover.requestEmailButton);
         // Verify that the success message is shown for security reasons
         await ShopCustomer.expects(StorefrontAccountRecover.passwordResetEmailSentMessage).toBeVisible();
     });
@@ -57,7 +59,7 @@ test ('As a customer, I can reset my password using the password recovery proces
     Login,
     DefaultSalesChannel,
 }) => {
-    test.skip(InstanceMeta.isSaaS, 'Skipping test because it requires a local mailpit instance.');
+    test.skip(InstanceMeta.isSaaS || InstanceMeta.isPaaS, 'Skipping test because it requires a local mailpit instance.');
 
     let passwordResetLink = '';
     const newPassword = 'new-password';
@@ -65,17 +67,17 @@ test ('As a customer, I can reset my password using the password recovery proces
 
     await test.step('Navigate to the login page and click on forgot password', async () => {
         await ShopCustomer.goesTo(StorefrontAccountLogin.url());
-        await StorefrontAccountLogin.forgotPasswordLink.click();
+        await ShopCustomer.presses(StorefrontAccountLogin.forgotPasswordLink);
     });
 
     await test.step('Fill in the customer email and request a password reset', async () => {
-        await StorefrontAccountRecover.emailInput.fill(customer.email);
-        await StorefrontAccountRecover.requestEmailButton.click();
+        await ShopCustomer.fillsIn(StorefrontAccountRecover.emailInput, customer.email);
+        await ShopCustomer.presses(StorefrontAccountRecover.requestEmailButton);
     });
 
     await test.step('Verify the password reset email sent message and navigate back to login', async () => {
         await ShopCustomer.expects(StorefrontAccountRecover.passwordResetEmailSentMessage).toBeVisible();
-        await StorefrontAccountRecover.backButton.click();
+        await ShopCustomer.presses(StorefrontAccountRecover.backButton);
         await ShopCustomer.expects(StorefrontAccountLogin.loginButton).toBeVisible();
     });
 
@@ -97,9 +99,9 @@ test ('As a customer, I can reset my password using the password recovery proces
     await test.step('Update password using link in the email and login with new password successfully', async () => {
         passwordResetLink = await MailpitApiContext.getLinkFromMail(customer.email);
         await ShopCustomer.goesTo(StorefrontAccountRecover.url(passwordResetLink));
-        await StorefrontAccountRecover.newPasswordInput.fill(newPassword);
-        await StorefrontAccountRecover.newPasswordConfirmInput.fill(newPassword);
-        await StorefrontAccountRecover.changePasswordButton.click();
+        await ShopCustomer.fillsIn(StorefrontAccountRecover.newPasswordInput, newPassword);
+        await ShopCustomer.fillsIn(StorefrontAccountRecover.newPasswordConfirmInput, newPassword);
+        await ShopCustomer.presses(StorefrontAccountRecover.changePasswordButton);
         await ShopCustomer.expects(StorefrontAccountLogin.passwordUpdatedAlert).toBeVisible();
         customer.password = newPassword;
         await ShopCustomer.expects(StorefrontAccountLogin.loginButton).toBeVisible();

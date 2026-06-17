@@ -3,7 +3,6 @@
 namespace Shopware\Tests\Unit\Core\Checkout\Payment\Cart\Token;
 
 use Doctrine\DBAL\Connection;
-use Lcobucci\Clock\FrozenClock;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Token;
 use Lcobucci\JWT\Validation\Constraint;
@@ -18,14 +17,18 @@ use Shopware\Core\Checkout\Payment\Cart\Token\TokenStruct;
 use Shopware\Core\Checkout\Payment\PaymentException;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\Test\Annotation\DisabledFeatures;
 use Shopware\Core\Test\Stub\Checkout\Payment\Cart\Token\TestKey;
 use Shopware\Core\Test\Stub\Checkout\Payment\Cart\Token\TestSigner;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 
 /**
  * @internal
  */
 #[CoversClass(JWTFactoryV2::class)]
 #[Package('checkout')]
+#[DisabledFeatures(['v6.8.0.0'])]
 class JWTFactoryV2Test extends TestCase
 {
     private JWTFactoryV2 $tokenFactory;
@@ -37,7 +40,7 @@ class JWTFactoryV2Test extends TestCase
         $configuration = Configuration::forSymmetricSigner(new TestSigner(), new TestKey());
         $configuration = $configuration->withValidationConstraints(new NoopConstraint());
         $this->connection = $this->createMock(Connection::class);
-        $this->tokenFactory = new JWTFactoryV2($configuration, $this->connection);
+        $this->tokenFactory = new JWTFactoryV2($configuration, $this->connection, new NativeClock());
     }
 
     #[DataProvider('dataProviderExpiration')]
@@ -54,10 +57,8 @@ class JWTFactoryV2Test extends TestCase
         } else {
             $this->connection
                 ->expects($this->once())
-                ->method('fetchAssociative')
-                ->willReturn(
-                    ['token' => $token, 'consumed' => '0']
-                );
+                ->method('fetchOne')
+                ->willReturn([1]);
         }
 
         $tokenStruct = $this->tokenFactory->parseToken($token);
@@ -73,8 +74,7 @@ class JWTFactoryV2Test extends TestCase
     {
         $token = Uuid::randomHex();
 
-        $this->expectException(PaymentException::class);
-        $this->expectExceptionMessage('The provided token ' . $token . ' is invalid and the payment could not be processed.');
+        $this->expectExceptionObject(PaymentException::invalidToken($token));
 
         static::assertNotEmpty($token);
 
@@ -88,8 +88,7 @@ class JWTFactoryV2Test extends TestCase
         $token = $this->tokenFactory->generateToken($tokenStruct);
         $invalidToken = substr($token, 0, -5);
 
-        $this->expectException(PaymentException::class);
-        $this->expectExceptionMessage('The provided token ' . $invalidToken . ' is invalid and the payment could not be processed.');
+        $this->expectExceptionObject(PaymentException::invalidToken($invalidToken));
 
         static::assertNotEmpty($invalidToken);
 
@@ -107,15 +106,14 @@ class JWTFactoryV2Test extends TestCase
     public function testExpiredToken(): void
     {
         $configuration = Configuration::forSymmetricSigner(new TestSigner(), new TestKey());
-        $configuration = $configuration->withValidationConstraints(new StrictValidAt(new FrozenClock(new \DateTimeImmutable('now - 1 day'))));
-        $tokenFactory = new JWTFactoryV2($configuration, $this->createMock(Connection::class));
+        $configuration = $configuration->withValidationConstraints(new StrictValidAt(new MockClock(new \DateTimeImmutable('now - 1 day'))));
+        $tokenFactory = new JWTFactoryV2($configuration, $this->createMock(Connection::class), new NativeClock());
 
         $transaction = self::createTransaction();
         $tokenStruct = new TokenStruct(null, null, $transaction->getPaymentMethodId(), $transaction->getId(), null, -50);
         $token = $tokenFactory->generateToken($tokenStruct);
 
-        $this->expectException(PaymentException::class);
-        $this->expectExceptionMessage('The provided token ' . $token . ' is invalid and the payment could not be processed.');
+        $this->expectExceptionObject(PaymentException::invalidToken($token));
 
         static::assertNotEmpty($token);
 
@@ -130,14 +128,13 @@ class JWTFactoryV2Test extends TestCase
             ->method('fetchOne')
             ->willReturn(false);
 
-        $tokenFactory = new JWTFactoryV2($configuration, $this->connection);
+        $tokenFactory = new JWTFactoryV2($configuration, $this->connection, new NativeClock());
 
         $transaction = self::createTransaction();
         $tokenStruct = new TokenStruct(null, null, $transaction->getPaymentMethodId(), $transaction->getId(), null, -50);
         $token = $tokenFactory->generateToken($tokenStruct);
 
-        static::expectException(PaymentException::class);
-        static::expectExceptionMessage('The provided token ' . $token . ' is invalidated and the payment could not be processed.');
+        $this->expectExceptionObject(PaymentException::tokenInvalidated($token));
 
         static::assertNotEmpty($token);
 

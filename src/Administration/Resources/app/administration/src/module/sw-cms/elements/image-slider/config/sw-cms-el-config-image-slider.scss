@@ -1,5 +1,3 @@
-@import "~scss/variables";
-
 .sw-cms-el-config-image-slider {
     .sw-cms-el-config-image-slider__setting-option {
         display: grid;
@@ -47,6 +45,10 @@
     }
 
     &__setting-auto-slide {
+        &.mt-banner {
+            padding-bottom: 0;
+        }
+
         &.sw-field--switch .sw-field__label label {
             margin-right: 0;
         }

@@ -69,31 +69,7 @@ class TranslationMetadataLoader
         );
     }
 
-    protected function getPath(): string
-    {
-        return Path::join(TranslationLoader::TRANSLATION_DIR, self::CROWDIN_METADATA_LOCK);
-    }
-
-    private function downloadFile(): ResponseInterface
-    {
-        try {
-            return $this->client->request(Request::METHOD_GET, $this->config->metadataUrl);
-        } catch (GuzzleException $e) {
-            throw SnippetException::translationMetadataDownloadFailed($this->config->metadataUrl, $e);
-        }
-    }
-
-    /**
-     * @return DecodedMetadata
-     */
-    private function decode(string $content): array
-    {
-        $data = json_decode($content, true, \JSON_THROW_ON_ERROR);
-
-        return array_column($data, null, 'locale');
-    }
-
-    private function getLocalMetadata(): MetadataCollection
+    public function getLocalMetadata(): MetadataCollection
     {
         $path = $this->getPath();
 
@@ -111,6 +87,30 @@ class TranslationMetadataLoader
         }
 
         return new MetadataCollection($elements);
+    }
+
+    protected function getPath(): string
+    {
+        return Path::join(AbstractTranslationLoader::TRANSLATION_DIR, self::CROWDIN_METADATA_LOCK);
+    }
+
+    private function downloadFile(): ResponseInterface
+    {
+        try {
+            return $this->client->request(Request::METHOD_GET, $this->config->metadataUrl);
+        } catch (GuzzleException $e) {
+            throw SnippetException::translationMetadataDownloadFailed($this->config->metadataUrl, $e);
+        }
+    }
+
+    /**
+     * @return DecodedMetadata
+     */
+    private function decode(string $content): array
+    {
+        $data = json_decode($content, true, flags: \JSON_THROW_ON_ERROR);
+
+        return array_column($data, null, 'locale');
     }
 
     /**

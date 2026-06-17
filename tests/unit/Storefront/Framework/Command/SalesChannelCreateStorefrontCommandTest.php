@@ -39,7 +39,6 @@ class SalesChannelCreateStorefrontCommandTest extends TestCase
 
         $foundSnippetSetId = $snippetSetId;
         if (!$foundSnippetSetId) {
-            /** @var IdSearchResult $idSearchResult */
             foreach ($idsSearchResult as $idSearchResult) {
                 $foundSnippetSetId = $idSearchResult->firstId() ?: $foundSnippetSetId;
             }
@@ -126,7 +125,7 @@ class SalesChannelCreateStorefrontCommandTest extends TestCase
         ?string $snippetSetId,
         string $isoCode,
         array $idsSearchResult,
-        string $exception
+        \Exception $exception
     ): void {
         /** @var StaticEntityRepository<SnippetSetCollection> $snippetSetRepository */
         $snippetSetRepository = new StaticEntityRepository($idsSearchResult);
@@ -163,7 +162,7 @@ class SalesChannelCreateStorefrontCommandTest extends TestCase
 
         $output = static::createStub(OutputInterface::class);
 
-        $this->expectExceptionMessage($exception);
+        $this->expectExceptionObject($exception);
 
         $cmd->run($input, $output);
     }
@@ -181,7 +180,7 @@ class SalesChannelCreateStorefrontCommandTest extends TestCase
             'snippetSetId' => null,
             'isoCode' => 'de-DE',
             'idsSearchResult' => [
-                new IdSearchResult(1, [['primaryKey' => 'snippetSetId', 'data' => []]], new Criteria(), Context::createDefaultContext()),
+                new IdSearchResult(1, ['snippetSetId' => ['primaryKey' => 'snippetSetId', 'data' => []]], new Criteria(), Context::createDefaultContext()),
             ],
             'exception' => null,
         ];
@@ -191,7 +190,7 @@ class SalesChannelCreateStorefrontCommandTest extends TestCase
             'isoCode' => 'nl-NL',
             'idsSearchResult' => [
                 new IdSearchResult(0, [], new Criteria(), Context::createDefaultContext()),
-                new IdSearchResult(1, [['primaryKey' => 'snippetSetId', 'data' => []]], new Criteria(), Context::createDefaultContext()),
+                new IdSearchResult(1, ['snippetSetId' => ['primaryKey' => 'snippetSetId', 'data' => []]], new Criteria(), Context::createDefaultContext()),
             ],
             'exception' => null,
         ];
@@ -206,7 +205,7 @@ class SalesChannelCreateStorefrontCommandTest extends TestCase
                 new IdSearchResult(0, [], new Criteria(), Context::createDefaultContext()),
                 new IdSearchResult(0, [], new Criteria(), Context::createDefaultContext()),
             ],
-            'exception' => 'Snippet set with isoCode nl-NL cannot be found.',
+            'exception' => new \InvalidArgumentException('Snippet set with isoCode nl-NL cannot be found.'),
         ];
     }
 }

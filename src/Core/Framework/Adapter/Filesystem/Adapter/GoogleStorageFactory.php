@@ -21,13 +21,12 @@ class GoogleStorageFactory implements AdapterFactoryInterface
 
         $options = $this->resolveStorageConfig($config);
         $storageConfig = ['projectId' => $options['projectId']];
-        if (isset($config['keyFile'])) {
+        if (isset($options['keyFile'])) {
             $storageConfig['keyFile'] = $options['keyFile'];
-        } else {
+        } elseif (isset($options['keyFilePath'])) {
             $storageConfig['keyFilePath'] = $options['keyFilePath'];
         }
 
-        // @phpstan-ignore method.deprecated
         $bucket = (new StorageClient($storageConfig))->bucket($options['bucket']);
 
         return new GoogleCloudStorageAdapter($bucket, $options['root']);

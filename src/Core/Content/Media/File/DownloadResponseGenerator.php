@@ -5,12 +5,16 @@ namespace Shopware\Core\Content\Media\File;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemOperator;
 use League\Flysystem\UnableToGenerateTemporaryUrl;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Media\Core\Application\AbstractMediaUrlGenerator;
 use Shopware\Core\Content\Media\Core\Params\UrlParams;
+use Shopware\Core\Content\Media\Exception\IllegalFileNameException;
 use Shopware\Core\Content\Media\MediaEntity;
 use Shopware\Core\Content\Media\MediaException;
 use Shopware\Core\Content\Media\MediaService;
+use Shopware\Core\Content\Media\Util\PathHelper;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -31,11 +35,13 @@ class DownloadResponseGenerator
      * @internal
      */
     public function __construct(
+        private readonly LoggerInterface $logger,
         private readonly FilesystemOperator $filesystemPublic,
         private readonly FilesystemOperator $filesystemPrivate,
         private readonly MediaService $mediaService,
         private readonly string $localPrivateDownloadStrategy,
         private readonly AbstractMediaUrlGenerator $mediaUrlGenerator,
+        private readonly ClockInterface $clock,
         private readonly string $privateLocalPathPrefix = ''
     ) {
     }
@@ -50,10 +56,13 @@ class DownloadResponseGenerator
         $path = $media->getPath();
 
         try {
-            $url = $fileSystem->temporaryUrl($path, (new \DateTime())->modify($expiration));
+            $url = $fileSystem->temporaryUrl($path, $this->clock->now()->modify($expiration));
 
             return new RedirectResponse($url);
-        } catch (UnableToGenerateTemporaryUrl) {
+        } catch (UnableToGenerateTemporaryUrl $exception) {
+            $this->logger->warning($exception->getMessage(), ['exception' => $exception]);
+        } catch (\Exception $exception) {
+            $this->logger->critical($exception->getMessage(), ['exception' => $exception]);
         }
 
         return $this->getDefaultResponse($media, $context, $fileSystem);
@@ -84,7 +93,7 @@ class DownloadResponseGenerator
                 $location = $media->getPath();
 
                 // Apply the path prefix if configured
-                if (!empty($this->privateLocalPathPrefix)) {
+                if ($this->privateLocalPathPrefix !== '') {
                     $location = $this->privateLocalPathPrefix . '/' . ltrim($location, '/');
                 }
 
@@ -117,7 +126,7 @@ class DownloadResponseGenerator
             throw MediaException::fileNotFound($media->getFileName() . '.' . $media->getFileExtension());
         }
 
-        return new StreamedResponse(function () use ($stream): void {
+        return new StreamedResponse(static function () use ($stream): void {
             fpassthru($stream);
         }, Response::HTTP_OK, $this->getStreamHeaders($media));
     }
@@ -144,12 +153,18 @@ class DownloadResponseGenerator
     {
         $filename = $media->getFileName() . '.' . $media->getFileExtension();
 
+        try {
+            $filenameFallback = PathHelper::stripNonAsciiAndControlChars($filename);
+        } catch (IllegalFileNameException) {
+            $filenameFallback = '';
+        }
+
         return [
             'Content-Disposition' => HeaderUtils::makeDisposition(
                 HeaderUtils::DISPOSITION_ATTACHMENT,
                 $filename,
                 // only printable ascii
-                preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', $filename) ?? ''
+                $filenameFallback
             ),
             'Content-Length' => $media->getFileSize() ?? 0,
             'Content-Type' => 'application/octet-stream',

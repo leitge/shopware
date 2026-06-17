@@ -20,6 +20,7 @@ export default {
         'repositoryFactory',
         'acl',
         'mediaDefaultFolderService',
+        'feature',
     ],
 
     mixins: [
@@ -102,7 +103,7 @@ export default {
 
             return {
                 showDelay: 300,
-                message: this.$tc('sw-privileges.tooltip.warning'),
+                message: this.$t('sw-privileges.tooltip.warning'),
                 disabled: this.acl.can('order.editor'),
                 showOnDisabledElements: true,
             };
@@ -115,7 +116,11 @@ export default {
             };
         },
 
-        ...mapPropertyErrors('manufacturer', ['name']),
+        ...mapPropertyErrors('manufacturer', [
+            'description',
+            'link',
+            'name',
+        ]),
     },
 
     watch: {
@@ -167,7 +172,7 @@ export default {
 
             if (manufacturerResponse.status === 'rejected' || customFieldResponse.status === 'rejected') {
                 this.createNotificationError({
-                    message: this.$tc('global.notification.notificationLoadingDataErrorMessage'),
+                    message: this.$t('global.notification.notificationLoadingDataErrorMessage'),
                 });
             }
 
@@ -247,7 +252,7 @@ export default {
                 .catch((exception) => {
                     this.isLoading = false;
                     this.createNotificationError({
-                        message: this.$tc('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
+                        message: this.$t('global.notification.notificationSaveErrorMessageRequiredFieldsInvalid'),
                     });
                     throw exception;
                 });

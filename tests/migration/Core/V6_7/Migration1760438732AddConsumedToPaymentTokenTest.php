@@ -6,6 +6,7 @@ use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelLifecycleManager;
+use Shopware\Core\Framework\Util\Database\TableHelper;
 use Shopware\Core\Migration\V6_7\Migration1760438732AddConsumedToPaymentToken;
 
 /**
@@ -21,6 +22,11 @@ class Migration1760438732AddConsumedToPaymentTokenTest extends TestCase
         $this->connection = KernelLifecycleManager::getConnection();
     }
 
+    public function testGetCreationTimestamp(): void
+    {
+        static::assertSame(1760438732, (new Migration1760438732AddConsumedToPaymentToken())->getCreationTimestamp());
+    }
+
     public function testCreationTimestamp(): void
     {
         $migration = new Migration1760438732AddConsumedToPaymentToken();
@@ -34,15 +40,12 @@ class Migration1760438732AddConsumedToPaymentTokenTest extends TestCase
         $migration->update($this->connection);
         $migration->update($this->connection);
 
-        $existingColumns = $this->connection->createSchemaManager()->listTableColumns('payment_token');
-        static::assertArrayHasKey('consumed', $existingColumns);
+        static::assertTrue(TableHelper::columnExists($this->connection, 'payment_token', 'consumed'));
     }
 
     private function rollback(): void
     {
-        $existingColumns = $this->connection->createSchemaManager()->listTableColumns('payment_token');
-
-        if (\array_key_exists('consumed', $existingColumns)) {
+        if (TableHelper::columnExists($this->connection, 'payment_token', 'consumed')) {
             $this->connection->executeStatement('ALTER TABLE `payment_token` DROP COLUMN `consumed`;');
         }
     }

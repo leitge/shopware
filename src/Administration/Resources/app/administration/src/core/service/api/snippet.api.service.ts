@@ -10,6 +10,8 @@ type SnippetFilter = {
     data: Array<string>;
 };
 
+type InstalledLocales = Record<string, string>;
+
 /**
  * @class
  * @extends ApiService
@@ -54,20 +56,32 @@ class SnippetApiService extends ApiService {
                     ]) => {
                         const fnName = registry.has(localeKey) ? 'extend' : 'register';
 
+                        // Adding snippets to the locale factory
                         localeFactory[fnName](localeKey, snippets);
+
+                        // Only update i18n instance when using register
+                        // (extend already handles this internally)
+                        if (fnName === 'register' && Shopware.Snippet?.setLocaleMessage) {
+                            // Get the merged new messages from the locale registry
+                            const allMessagesForLocale = registry.get(localeKey) || {};
+
+                            // Set empty messages first to trigger reactivity update
+                            Shopware.Snippet.setLocaleMessage?.(localeKey, {});
+                            Shopware.Snippet.setLocaleMessage?.(localeKey, allMessagesForLocale);
+                        }
                     },
                 );
             });
     }
 
-    async getLocales(): Promise<Array<string>> {
+    async getLocales(): Promise<InstalledLocales> {
         const headers = this.getBasicHeaders();
 
         return this.httpClient
             .get(`/_admin/locales`, {
                 headers,
             })
-            .then((response: AxiosResponse<Array<string>>) => {
+            .then((response: AxiosResponse<InstalledLocales>) => {
                 return ApiService.handleResponse(response);
             });
     }

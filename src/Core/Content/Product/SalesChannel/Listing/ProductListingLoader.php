@@ -17,6 +17,8 @@ use Shopware\Core\Content\Product\SalesChannel\Search\ResolvedCriteriaProductSea
 use Shopware\Core\Content\Product\SalesChannel\Suggest\ProductSuggestRoute;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\NotEqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Grouping\FieldGrouping;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
@@ -32,6 +34,61 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 #[Package('inventory')]
 class ProductListingLoader
 {
+    /**
+     * Field set loaded in listings when `core.listing.partialDataLoading` is enabled. Covers the
+     * data required by the default storefront product boxes. Nested association fields (e.g.
+     * `prices.ruleId`) must be listed explicitly — a bare association name only loads primary keys.
+     *
+     * @var list<string>
+     */
+    final public const PARTIAL_LISTING_FIELDS = [
+        'id',
+        'versionId',
+        'parentId',
+        'productNumber',
+        'displayGroup',
+        'states',
+        'childCount',
+        'name',
+        'descriptionTeaser',
+        'available',
+        'availableStock',
+        'stock',
+        'isCloseout',
+        'minPurchase',
+        'maxPurchase',
+        'purchaseSteps',
+        'purchaseUnit',
+        'referenceUnit',
+        'unitId',
+        'taxId',
+        'price',
+        'prices.ruleId',
+        'prices.price',
+        'prices.quantityStart',
+        'prices.quantityEnd',
+        'cheapestPrice',
+        'variantListingConfig',
+        'variation',
+        'options.group',
+        'coverId',
+        'cover.media.url',
+        'cover.media.alt',
+        'cover.media.title',
+        'cover.media.mediaTypeRaw',
+        'cover.media.thumbnailsRo',
+        'manufacturerId',
+        'manufacturer.name',
+        'ratingAverage',
+        'releaseDate',
+        'markAsTopseller',
+        'deliveryTimeId',
+        'deliveryTime.name',
+        'deliveryTime.min',
+        'deliveryTime.max',
+        'deliveryTime.unit',
+    ];
+
     /**
      * @internal
      *
@@ -66,6 +123,13 @@ class ProductListingLoader
     private function _load(Criteria $criteria, SalesChannelContext $context): EntitySearchResult
     {
         $criteria->addState(Criteria::STATE_ELASTICSEARCH_AWARE);
+
+        $partialDataLoading = $this->systemConfigService->get('core.listing.partialDataLoading', $context->getSalesChannelId());
+
+        if ($criteria->getFields() === [] && (bool) $partialDataLoading) {
+            $criteria->addFields(self::PARTIAL_LISTING_FIELDS);
+        }
+
         $clone = clone $criteria;
 
         $idResult = $this->extensions->publish(
@@ -76,7 +140,6 @@ class ProductListingLoader
 
         $aggregations = $this->productRepository->aggregate($clone, $context);
 
-        /** @var list<string> $ids */
         $ids = $idResult->getIds();
         // no products found, no need to continue
         if (empty($ids)) {
@@ -117,13 +180,13 @@ class ProductListingLoader
             array_push($fields, ...$filter->getFields());
         }
 
-        $fields = array_map(fn (string $field) => preg_replace('/^product./', '', $field), $fields);
+        $fields = array_map(static fn (string $field) => preg_replace('/^product./', '', $field), $fields);
 
-        if (\in_array('options.id', $fields, true)) {
+        if (\in_array('options.id', $fields, true) || \in_array('properties.id', $fields, true)) {
             return true;
         }
 
-        return \in_array('optionIds', $fields, true);
+        return \in_array('optionIds', $fields, true) || \in_array('propertyIds', $fields, true);
     }
 
     private function addGrouping(Criteria $criteria): void
@@ -179,7 +242,7 @@ class ProductListingLoader
         }
 
         // now we have a mapping for "child => main variant"
-        if (empty($mapping)) {
+        if ($mapping === []) {
             return $ids;
         }
 
@@ -265,6 +328,19 @@ class ProductListingLoader
     {
         $this->addGrouping($criteria);
 
+        $isSearchRoute = $criteria->hasState(ResolvedCriteriaProductSearchRoute::STATE, ProductSuggestRoute::STATE);
+
+        if ($isSearchRoute && $this->systemConfigService->getBool(
+            'core.listing.findBestVariant',
+            $context->getSalesChannelId()
+        )) {
+            $criteria->addState(Criteria::STATE_SCORE_RANKED_GROUPING);
+            $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, [
+                new EqualsFilter('childCount', 0),
+                new EqualsFilter('childCount', null),
+            ]));
+        }
+
         if ($this->systemConfigService->getBool(
             'core.listing.hideCloseoutProductsWhenOutOfStock',
             $context->getSalesChannelId()
@@ -288,7 +364,7 @@ class ProductListingLoader
 
         $hasOptionFilter = $this->hasOptionFilter($criteria);
 
-        $shouldLoadPreviews = $this->shouldLoadPreviews($hasOptionFilter, $criteria);
+        $shouldLoadPreviews = $this->shouldLoadPreviews($hasOptionFilter, $criteria, $context);
 
         if ($shouldLoadPreviews) {
             $mapping = $this->extensions->publish(
@@ -304,13 +380,24 @@ class ProductListingLoader
         return $event->getMapping();
     }
 
-    private function shouldLoadPreviews(bool $hasOptionFilter, Criteria $criteria): bool
+    private function shouldLoadPreviews(bool $hasOptionFilter, Criteria $criteria, SalesChannelContext $context): bool
     {
+        $loadPreview = !$this->systemConfigService->getBool(
+            'core.listing.findBestVariant',
+            $context->getSalesChannelId()
+        );
+
         if ($hasOptionFilter === true) {
-            return false;
+            return $loadPreview;
         }
 
-        return !$criteria->hasState(ResolvedCriteriaProductSearchRoute::STATE, ProductSuggestRoute::STATE);
+        $isSearchRoute = $criteria->hasState(ResolvedCriteriaProductSearchRoute::STATE, ProductSuggestRoute::STATE);
+
+        if ($loadPreview && $isSearchRoute) {
+            return true;
+        }
+
+        return !$isSearchRoute;
     }
 
     /**

@@ -13,10 +13,12 @@
       "INVALID_URL": "Bitte gib eine gültige URL ein.",
       "INVALID_MAIL": "Bitte gib eine gültige E-Mail-Adresse ein.",
       "FRAMEWORK__RATE_LIMIT_EXCEEDED": "Zu viele Anfragen. Bitte warten Sie {seconds} Sekunden, bevor Sie es erneut versuchen.",
+      "FRAMEWORK__ROUTE_BLOCKED_MESSAGE": "Die URL {path} steht in Konflikt mit der bestehenden Route {blockedSegment} und kann nicht verwendet werden.",
       "DUPLICATED_URL": "Diese URL wird bereits genutzt. Bitte wähle eine andere Domain.",
       "DUPLICATED_NAME": "Dieser Name wird bereits genutzt.",
       "CONTENT__MEDIA_EMPTY_FILE": "Gib einen gültigen Dateinamen an.",
       "CONTENT__INVALID_CUSTOM_ENTITY_FIELD_TYPE": "Datentyp kann nicht gerendert werden. Bitte kontaktiere Deinen Administrator.",
+      "FRAMEWORK__API_SALES_CHANNEL_MAINTENANCE_MODE": "Der ausgewählte Verkaufskanal befindet sich im Wartungsmodus und Deine IP-Adresse steht nicht auf der Allowlist. Deaktiviere den Wartungsmodus oder füge Deine IP-Adresse zur Allowlist hinzu.",
       "THEME__INVALID_SCSS_VAR": "SCSS-Wert \"{value}\" ist nicht gültig für Typ \"{type}\"."
     },
     "default": {
@@ -48,7 +50,8 @@
       "back": "Zurück",
       "discard": "Verwerfen",
       "submit": "Absenden",
-      "attention": "Warnung"
+      "attention": "Warnung",
+      "configure": "Konfigurieren"
     },
     "notification": {
       "notificationSaveErrorMessage": "Beim Speichern der Entität \"{entityName}\" ist ein Fehler aufgetreten.",
@@ -180,12 +183,14 @@
     "sw-field": {
       "notification": {
         "notificationCopySuccessMessage": "Der Text wurde in die Zwischenablage kopiert.",
-        "notificationCopyFailureMessage": "Der Text konnte nicht in die Zwischenablage kopiert werden."
+        "notificationCopyFailureMessage": "Der Text konnte nicht in die Zwischenablage kopiert werden. Stelle sicher, dass du über eine sichere Verbindung (HTTPS) auf die Administration zugreifst, und versuche es erneut."
       },
       "titleShowPassword": "Passwort anzeigen",
       "titleHidePassword": "Passwort verbergen",
       "tooltipRestoreInheritance": "Vererbung wiederherstellen",
-      "tooltipRemoveInheritance": "Vererbung entfernen"
+      "tooltipRemoveInheritance": "Vererbung entfernen",
+      "ariaLinkInheritance": "Vererbung verknüpfen",
+      "ariaUnlinkInheritance": "Vererbung aufheben"
     },
     "sw-field-copyable": {
       "tooltip": {
@@ -198,6 +203,9 @@
       "notification": {
         "invalidFileType": {
           "message": "Die gewählte Datei \"{name}\" hat ein nicht unterstütztes Format. Bitte benutze eins der folgenden Formate: {supportedTypes}."
+        },
+        "invalidFileExtension": {
+          "message": "Die gewählte Datei \"{name}\" hat eine nicht unterstützte Dateiendung. Bitte benutze eine der folgenden Dateiendungen: {supportedExtensions}."
         },
         "invalidFileSize": {
           "message": "Die gewählte Datei \"{name}\" ist zu groß für den Upload. Die maximale Dateigröße ist {limit}."
@@ -302,6 +310,8 @@
       "labelContextMenuRename": "Umbenennen",
       "labelContextMenuDetail": "Informationen",
       "labelContextMenuMove": "Verschieben",
+      "labelContextMenuSetCover": "Cover-Bild festlegen",
+      "labelContextMenuRemoveCover": "Cover entfernen",
       "notification": {
         "errorBlankItemName": {
           "message": "Das Medium konnte nicht umbenannt werden. Bitte füge einen Dateinamen hinzu."
@@ -317,6 +327,18 @@
         },
         "settingsSuccess": {
           "message": "Einstellungen erfolgreich gespeichert."
+        },
+        "coverSaveSuccess": {
+          "message": "Cover-Bild erfolgreich gespeichert."
+        },
+        "coverRemoveSuccess": {
+          "message": "Cover-Bild wurde entfernt."
+        },
+        "coverSelectionInvalid": {
+          "message": "Bitte wähle ein Bild als Cover aus."
+        },
+        "coverSaveError": {
+          "message": "Cover-Bild konnte nicht gespeichert werden."
         }
       },
       "labelUploading": "Wird hochgeladen ..."
@@ -447,6 +469,10 @@
       "buttonSwitchToFileUpload": "Datei von Deinem Computer hochladen",
       "buttonSwitchToUrlUpload": "Datei von URL hochladen",
       "buttonOpenMedia": "Medien öffnen",
+      "snackbar": {
+        "message": "Datei wird hochgeladen | Dateien werden hochgeladen ({processed}/{total})",
+        "errorMessage": "Die Datei konnte nicht hochgeladen werden. | Manche Dateien konnten nicht hochgeladen werden."
+      },
       "notification": {
         "success": {
           "message": "Keine Datei erfolgreich gespeichert | Eine Datei erfolgreich gespeichert | {count} / {total} Dateien erfolgreich gespeichert."
@@ -463,6 +489,18 @@
         "illegalFileUrl": {
           "title": "Ungültige URL",
           "message": "Hochladen über lokale URLs nicht erlaubt."
+        },
+        "illegalFileType": {
+          "message": "Die Datei \"{name}\" konnte nicht hochgeladen werden. Der Dateityp wird nicht unterstützt."
+        },
+        "requestCanceled": {
+          "message": "Das Hochladen wurde abgebrochen."
+        },
+        "payloadTooLarge": {
+          "message": "Die Datei ist zu groß. Bitte reduziere die Dateigröße oder überprüfe die Server-Konfiguration."
+        },
+        "transportError": {
+          "message": "Upload fehlgeschlagen aufgrund eines Verbindungsproblems oder eines Server-Timeouts. Bitte Verbindung oder Server-Limits prüfen."
         }
       },
       "caption": "Dateien zum Hochladen hierhin ziehen"
@@ -630,7 +668,7 @@
         "property": "G P R | A P R",
         "manufacturer": "G M | A M",
         "settings-rule": "G S R | A R",
-        "sales-channel": " | A S",
+        "sales-channel": "&nbsp; | A S",
         "cms": "G E | A E",
         "dashboard": "G H | &nbsp;",
         "product-stream": "G D | &nbsp;",
@@ -664,7 +702,8 @@
         "isNoneOf": "Ist keine von | Sind keine von",
         "gross": "Brutto",
         "net": "Netto",
-        "empty": "Ist leer | Sind leer"
+        "empty": "Ist leer | Sind leer",
+        "between": "Ist zwischen | Sind zwischen"
       },
       "placeholderErrorMessage": "Platzhalter können nicht gespeichert werden.",
       "dataErrorMessage": "Es wurden nicht alle Pflichtfelder befüllt.",
@@ -716,11 +755,11 @@
         "customerCampaignCodeRule": "Kampagnen-Code (Kunde)",
         "orderAffiliateCodeRule": "Affiliate-Code (Bestellung)",
         "orderCampaignCodeRule": "Kampagnen-Code (Bestellung)",
-        "cartAmountRule": "Gesamtsumme",
-        "cartPositionPrice": "Summe",
-        "goodsCountRule": "Gesamtanzahl unterschiedlicher Produkte",
-        "goodsPriceRule": "Zwischensumme aller Positionen",
-        "cartTotalPurchasePrice": "Summe aller Einkaufspreise",
+        "cartAmountRule": "Warenkorb-Gesamtsumme (inkl. Versand)",
+        "cartPositionPrice": "Summe der Positionen (ohne Versand)",
+        "goodsCountRule": "Anzahl unterschiedlicher Produkte",
+        "goodsPriceRule": "Zwischensumme der Warenpositionen (ohne Rabatte/Zuschläge)",
+        "cartTotalPurchasePrice": "Summe der Einkaufspreise",
         "lineItemOfTypeRule": {
           "label": "Position vom Typ",
           "product": "Produkt",
@@ -730,12 +769,13 @@
         "lineItemsInCartCountRule": "Anzahl unterschiedlicher Positionen",
         "promotionsInCartCountRule": "Anzahl der Rabatte",
         "lineItemUnitPriceRule": "Positionsstückpreis",
-        "lineItemTotalPriceRule": "Positionszwischensumme",
-        "lineItemWithQuantityRule": "Positionsanzahl",
+        "lineItemTotalPriceRule": "Positionssumme (Menge × Preis)",
+        "lineItemWithQuantityRule": "Position mit Menge",
+        "lineItemPerItemQuantityRule": "Menge pro Position",
         "orderTagRule": "Bestellung mit Tag",
         "orderTrackingCodeRule": "Sendungsnummer",
-        "orderDeliveryStatusRule": "Lieferstatus (Flow)",
-        "orderCreatedByAdminRule": "Bestellung vom Administrator erstellt (Flow)",
+        "orderDeliveryStatusRule": "Lieferstatus",
+        "orderCreatedByAdminRule": "Bestellung vom Administrator erstellt",
         "adminSalesChannelSourceRule": "In Administration verwendbar",
         "orderTransactionStatusRule": "Zahlungsstatus",
         "orderStatusRule": "Bestellstatus",
@@ -797,10 +837,11 @@
         "lineItemActualStockRule": "Position mit Lagerbestand",
         "lineItemStockRule": "Position mit verfügbarem Bestand",
         "lineItemProductStates": "Position mit Produktzustand",
+        "lineItemProductType": "Position mit Produkttyp",
         "numberOfReviews": "Anzahl freigegebener Bewertungen",
         "paymentMethodRule": "Verwendete Zahlungsart",
         "shippingMethodRule": "Verwendete Versandart",
-        "lineItemGoodsTotalRule": "Gesamtanzahl aller Produkte",
+        "lineItemGoodsTotalRule": "Gesamtmenge der Produkte (Stück)",
         "orderTotalAmountRule": "Gesamtwert aller abgeschlossenen Bestellungen",
         "promotionValueRule": "Zwischensumme aller Rabatte",
         "promotionCodeOfType": "Rabattaktionen mit Aktionscodetyp",
@@ -882,6 +923,14 @@
           "options": {
             "is-download": "Digital",
             "is-physical": "Physisch"
+          }
+        }
+      },
+      "cartLineItemProductType": {
+        "productType": {
+          "options": {
+            "digital": "Digital",
+            "physical": "Physisch"
           }
         }
       },
@@ -1056,6 +1105,8 @@
       "customer_group_registration_accepted": "Kundengruppen-Registrierung wurde akzeptiert",
       "customer_group_registration_declined": "Kundengruppen-Registrierung wurde abgelehnt",
       "customer_recovery_request": "Kunde fordert neues Passwort an",
+      "customer_password_changed": "Kunden-Passwort wurde geändert",
+      "revocation_request_sent": "Das Widerrufsformular wurde verschickt",
       "mail_after_create_message": "E-Mail wurde erzeugt",
       "mail_before_send": "E-Mail wird gesendet",
       "mail_sent": "E-Mail wurde gesendet",
@@ -1536,7 +1587,7 @@
         },
         "strategies": {
           "move-shop-permanently": {
-            "description": "Das ist in der Regel die richtige Option, wenn Du Deinen Shop dauerhaft in eine andere Infrastruktur oder Umgebung verschoben hast. Shopware benachrichtigt die Apps (d. h. erneute Registrierung bei den App-Servern) unter Verwendung derselben Shop-ID, und die Apps bleiben installiert. Dein Shop identifiziert sich weiterhin als derselbe wie zuvor.",
+            "description": "Das ist in der Regel die richtige Option, wenn Du Deinen Shop dauerhaft in eine andere Infrastruktur oder Umgebung verschoben hast. Shopware benachrichtigt die Apps (d. h. erneute Registrierung bei den App-Servern) unter Verwendung derselben Shop-ID, und die Apps bleiben installiert. Dein Shop identifiziert sich weiterhin als derselbe wie zuvor. Das bedeuted, dass die neue Instanz die App-Daten der alten Installation überschreibt.",
             "name": "Shop-ID beibehalten"
           },
           "reinstall-apps": {
@@ -1561,7 +1612,6 @@
   },
   "sw-wizard": {
     "backButton": "Zurück",
-    "closeButton": "Schließen",
     "finishButton": "Abschließen",
     "nextButton": "Weiter"
   },
@@ -1678,5 +1728,40 @@
   },
   "sw-context-button": {
     "ariaLabel": "Kontextmenü öffnen"
+  },
+  "sw-vector-field": {
+    "lock-uniform-scale": "Gleichmäßige Skalierung sperren",
+    "unlock-uniform-scale": "Gleichmäßige Skalierung entsperren"
+  },
+  "sw-model-editor": {
+      "titleModal": "Model Editor",
+      "open-model-editor-tooltip": "Model Editor öffnen",
+      "edit-options": {
+        "move-tooltip": "Objekt verschieben",
+        "rotate-tooltip": "Objekt drehen",
+        "scale-tooltip": "Objekt skalieren"
+      },
+      "properties": {
+        "transformation": {
+          "label":"Transformation",
+          "position": {
+            "label": "Position"
+          },
+          "rotation": {
+            "label": "Rotation"
+          },
+          "scale": {
+            "label": "Skalierung"
+          }
+        }
+      }
+    },
+  "sw-request-consent-modal": {
+    "title": "Zustimmung erforderlich",
+    "message": "Die Erweiterung {appName} bittet um Ihre Zustimmung für das folgende Thema: {consentName}",
+    "readMore": "Weitere Informationen finden Sie hier:",
+    "acceptButton": "Zustimmen",
+    "declineButton": "Ablehnen",
+    "updateFailed": "Beim Aktualisieren Deiner Zustimmung ist ein Fehler aufgetreten. Es wird Deine vorherige Entscheidung, falls vorhanden, beibehalten."
   }
 }

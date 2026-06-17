@@ -43,6 +43,10 @@ async function createWrapper(propsData) {
                 'sw-popover-deprecated': await wrapTestComponent('sw-popover-deprecated', { sync: true }),
                 'sw-block-field': await wrapTestComponent('sw-block-field', { sync: true }),
                 'sw-customer-address-form': await wrapTestComponent('sw-customer-address-form'),
+                'sw-address': {
+                    props: ['formattingAddress'],
+                    template: '<div class="sw-address">{{ formattingAddress }}</div>',
+                },
                 'sw-context-menu-item': await wrapTestComponent('sw-context-menu-item', { sync: true }),
                 'sw-base-field': await wrapTestComponent('sw-base-field', {
                     sync: true,
@@ -88,6 +92,7 @@ async function createWrapper(propsData) {
                                             },
                                         },
                                         hash: 'isUnique',
+                                        getEntityName: () => 'customer_address',
                                     },
                                     {
                                         street: 'Denesik Bridge',
@@ -107,13 +112,22 @@ async function createWrapper(propsData) {
                                             },
                                         },
                                         hash: 'isDuplicate',
+                                        getEntityName: () => 'customer_address',
                                     },
                                 ]),
                             }),
                         create: () => ({
                             _isNew: true,
+                            getEntityName: () => 'customer_address',
                         }),
                     }),
+                },
+                customSnippetApiService: {
+                    render: (address) => {
+                        return Promise.resolve({
+                            rendered: `${address.street}, ${address.zipcode} ${address.city}`,
+                        });
+                    },
                 },
                 shortcutService: {
                     stopEventListener: () => {},
@@ -140,6 +154,7 @@ async function createWrapper(propsData) {
                     },
                 },
                 hash: 'isDuplicate',
+                getEntityName: () => 'order_address',
             },
             addressId: '38e8895864a649a1b2ec806dad02ab87',
             type: 'billing',
@@ -200,7 +215,7 @@ describe('src/module/sw-order/component/sw-order-address-selection', () => {
 
         await wrapper.vm.$nextTick();
 
-        expect(wrapper.vm.currentAddress).toEqual({
+        expect(wrapper.vm.currentAddress).toMatchObject({
             street: 'Denesik Bridge',
             zipcode: '05132',
             city: 'Bernierstad',
@@ -308,5 +323,15 @@ describe('src/module/sw-order/component/sw-order-address-selection', () => {
         expect(information.findAll('p').at(1).text()).toBe('Stehr Divide');
         expect(information.findAll('p').at(2).text()).toBe('64885-2245 Faheyshire');
         expect(information.findAll('p').at(3).text()).toBe('Buzbach');
+    });
+
+    it('renders the selected address details below the select', async () => {
+        await flushPromises();
+
+        const selectedAddress = wrapper.find('.sw-order-address-selection__selected-address');
+        const selectedAddressContent = selectedAddress.find('.sw-address');
+
+        expect(selectedAddress.exists()).toBe(true);
+        expect(selectedAddressContent.text()).toBe('Denesik Bridge, 05132 Bernierstad');
     });
 });

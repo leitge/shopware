@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Content\Media\Core\Application\AbstractMediaUrlGenerator;
 use Shopware\Core\Content\Media\File\DownloadResponseGenerator;
 use Shopware\Core\Content\Media\MediaEntity;
@@ -20,6 +21,7 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Test\TestCaseHelper\AssertResponseHelper;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -47,11 +49,13 @@ class DownloadResponseGeneratorTest extends TestCase
         $publicFilesystem = $this->createMock(Filesystem::class);
 
         $this->downloadResponseGenerator = new DownloadResponseGenerator(
+            $this->createMock(LoggerInterface::class),
             $publicFilesystem,
             $this->privateFilesystem,
             $this->mediaService,
             'php',
             $this->createMock(AbstractMediaUrlGenerator::class),
+            new NativeClock(),
             ''
         );
 
@@ -66,11 +70,13 @@ class DownloadResponseGeneratorTest extends TestCase
         $media->setPath('foobar.txt');
 
         $downloadResponseGenerator = new DownloadResponseGenerator(
+            $this->createMock(LoggerInterface::class),
             $this->createMock(FilesystemOperator::class),
             $this->createMock(FilesystemOperator::class),
             $this->mediaService,
             'php',
             $this->createMock(AbstractMediaUrlGenerator::class),
+            new NativeClock(),
             ''
         );
 
@@ -88,8 +94,7 @@ class DownloadResponseGeneratorTest extends TestCase
         $media->setPrivate(true);
         $media->setPath('foobar.txt');
 
-        $this->expectException(MediaException::class);
-        $this->expectExceptionMessage('The file "foobar." does not exist');
+        $this->expectExceptionObject(MediaException::fileNotFound('foobar.'));
         $this->downloadResponseGenerator->getResponse($media, $this->salesChannelContext);
     }
 
@@ -110,11 +115,13 @@ class DownloadResponseGeneratorTest extends TestCase
         $generator->method('generate')->willReturn([$media->getId() => 'foobar.txt']);
 
         $this->downloadResponseGenerator = new DownloadResponseGenerator(
+            $this->createMock(LoggerInterface::class),
             $privateFilesystem,
             $publicFilesystem,
             $this->mediaService,
             $strategy ?? 'php',
             $generator,
+            new NativeClock(),
             $privateLocalPathPrefix
         );
 
@@ -154,6 +161,49 @@ class DownloadResponseGeneratorTest extends TestCase
         yield 'public / local' => [false, 'local', new RedirectResponse('foobar.txt')];
     }
 
+    public function testGetResponseUsingAzureBlobStorageWithUnsupportedAuth(): void
+    {
+        $fileSystem = $this->createMock(Filesystem::class);
+        $expectedException = new \Exception('UnableToGenerateSasException');
+        $fileSystem->method('temporaryUrl')->willThrowException($expectedException);
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('critical')
+            ->with(
+                static::equalTo('UnableToGenerateSasException'),
+                static::equalTo(['exception' => $expectedException]),
+            );
+
+        $media = new MediaEntity();
+        $media->setId(Uuid::randomHex());
+        $media->setFileName('foobar');
+        $media->setFileExtension('txt');
+        $media->setPrivate(true);
+        $media->setPath('foobar.txt');
+
+        $generator = $this->createMock(AbstractMediaUrlGenerator::class);
+        $generator->method('generate')->willReturn([$media->getId() => 'foobar.txt']);
+
+        $downloadResponseGenerator = new DownloadResponseGenerator(
+            $logger,
+            $fileSystem,
+            $fileSystem,
+            $this->mediaService,
+            'php',
+            $generator,
+            new NativeClock(),
+            ''
+        );
+
+        $streamInterface = $this->createMock(StreamInterface::class);
+        $streamInterface->method('detach')->willReturn(fopen('php://temp', 'r'));
+        $this->mediaService->method('loadFileStream')->willReturn($streamInterface);
+
+        $response = $downloadResponseGenerator->getResponse($media, $this->salesChannelContext);
+
+        AssertResponseHelper::assertResponseEquals(self::getExpectedStreamResponse(), $response);
+    }
+
     /**
      * @return Filesystem&MockObject
      */
@@ -189,7 +239,7 @@ class DownloadResponseGeneratorTest extends TestCase
             $response = new Response(null, 200, $headers);
 
             $locationPath = 'foobar.txt';
-            if ($strategy === DownloadResponseGenerator::X_ACCEL_REDIRECT && !empty($privateLocalPathPrefix)) {
+            if ($strategy === DownloadResponseGenerator::X_ACCEL_REDIRECT && $privateLocalPathPrefix !== '') {
                 $locationPath = $privateLocalPathPrefix . '/foobar.txt';
             }
 
@@ -198,7 +248,7 @@ class DownloadResponseGeneratorTest extends TestCase
             return $response;
         }
 
-        return new StreamedResponse(function (): void {
+        return new StreamedResponse(static function (): void {
         }, Response::HTTP_OK, $headers);
     }
 }

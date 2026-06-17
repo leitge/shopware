@@ -34,6 +34,7 @@ class ErrorController extends StorefrontController
 
     public function error(\Throwable $exception, Request $request, SalesChannelContext $context): Response
     {
+        /** @phpstan-ignore shopware.unsafeRequestHasSession (using $skipIfUninitialized = false as session will be started intentionally later; this can take the PHP session lock and is limited to storefront error rendering reading flash messages.) */
         $session = $request->hasSession() ? $request->getSession() : null;
 
         try {
@@ -90,7 +91,7 @@ class ErrorController extends StorefrontController
         $formViolations = new ConstraintViolationException($violations, []);
         if (!$request->isXmlHttpRequest()) {
             $errorRoute = (string) $request->request->get('errorRoute');
-            $route = $errorRoute !== '' ? $errorRoute : (($fallback = (string) $request->get('_route')) !== '' ? $fallback : 'frontend.home.page');
+            $route = $errorRoute !== '' ? $errorRoute : (($fallback = $request->attributes->getString('_route')) !== '' ? $fallback : 'frontend.home.page');
 
             return $this->forwardToRoute($route, ['formViolations' => $formViolations]);
         }

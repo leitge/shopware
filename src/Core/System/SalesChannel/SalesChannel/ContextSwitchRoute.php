@@ -14,6 +14,8 @@ use Shopware\Core\Framework\Validation\DataValidator;
 use Shopware\Core\PlatformRequest;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextPersister;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextServiceInterface;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextServiceParameters;
 use Shopware\Core\System\SalesChannel\ContextTokenResponse;
 use Shopware\Core\System\SalesChannel\Event\SalesChannelContextSwitchEvent;
 use Shopware\Core\System\SalesChannel\Event\SwitchContextEvent;
@@ -42,7 +44,8 @@ class ContextSwitchRoute extends AbstractContextSwitchRoute
     public function __construct(
         private readonly DataValidator $validator,
         private readonly SalesChannelContextPersister $contextPersister,
-        private readonly EventDispatcherInterface $eventDispatcher
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly SalesChannelContextServiceInterface $contextService,
     ) {
     }
 
@@ -89,12 +92,12 @@ class ContextSwitchRoute extends AbstractContextSwitchRoute
         if ($context->getCustomer()) {
             $addressCriteria->addFilter(new EqualsFilter('customer_address.customerId', $context->getCustomerId()));
         } else {
-            // do not allow to set address ids if the customer is not logged in
-            if (isset($parameters[self::SHIPPING_ADDRESS_ID])) {
+            // do not allow setting address ids if the customer is not logged in
+            if (isset($parameters[self::SHIPPING_ADDRESS_ID]) && $parameters[self::SHIPPING_ADDRESS_ID] !== '') {
                 throw SalesChannelException::customerNotLoggedIn();
             }
 
-            if (isset($parameters[self::BILLING_ADDRESS_ID])) {
+            if (isset($parameters[self::BILLING_ADDRESS_ID]) && $parameters[self::BILLING_ADDRESS_ID] !== '') {
                 throw SalesChannelException::customerNotLoggedIn();
             }
         }
@@ -136,11 +139,19 @@ class ContextSwitchRoute extends AbstractContextSwitchRoute
             $context->getToken(),
             $parameters,
             $salesChannelId,
-            $customer && empty($context->getPermissions()) ? $customer->getId() : null
+            $customer && $context->getPermissions() === [] ? $customer->getId() : null
         );
 
-        // Language was switched - Check new Domain
+        // Language was switched - Check new Domain with old context
         $changeUrl = $this->checkNewDomain($parameters, $context);
+
+        // Update the context with the new data, to have it up2date for the remainder of the request
+        $context = $this->contextService->get(
+            new SalesChannelContextServiceParameters(
+                $context->getSalesChannelId(),
+                $context->getToken()
+            )
+        );
 
         $event = new SalesChannelContextSwitchEvent($context, $data);
         $this->eventDispatcher->dispatch($event);

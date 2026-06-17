@@ -2,18 +2,19 @@
 
 namespace Shopware\Core\Framework\Adapter\Cache\Http;
 
+use Psr\Clock\ClockInterface;
 use Shopware\Core\Framework\Adapter\Cache\CacheCompressor;
 use Shopware\Core\Framework\Adapter\Cache\CacheTagCollector;
 use Shopware\Core\Framework\Adapter\Cache\Event\HttpCacheHitEvent;
 use Shopware\Core\Framework\Adapter\Cache\Event\HttpCacheStoreEvent;
 use Shopware\Core\Framework\Adapter\Cache\Message\RefreshHttpCacheMessage;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\MaintenanceModeResolver;
 use Shopware\Core\PlatformRequest;
 use Symfony\Component\Cache\Adapter\TagAwareAdapterInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpKernel\HttpCache\StoreInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -40,6 +41,8 @@ class CacheStore implements StoreInterface
      * @internal
      *
      * @param array<string, mixed> $sessionOptions
+     *
+     * @deprecated tag:v6.8.0 - Parameter $stateValidator will be removed
      */
     public function __construct(
         private readonly TagAwareAdapterInterface&CacheInterface $cache,
@@ -51,6 +54,7 @@ class CacheStore implements StoreInterface
         private readonly CacheTagCollector $collector,
         private bool $softPurge,
         private readonly MessageBusInterface $bus,
+        private readonly ClockInterface $clock,
     ) {
         $this->sessionName = $sessionOptions['name'] ?? PlatformRequest::FALLBACK_SESSION_NAME;
     }
@@ -63,8 +67,12 @@ class CacheStore implements StoreInterface
         }
 
         $key = $this->cacheKeyGenerator->generate($request);
+        // Caching is disabled for the request
+        if (!$key->isCacheable) {
+            return null;
+        }
 
-        $item = $this->cache->getItem($key);
+        $item = $this->cache->getItem($key->key);
 
         if (!$item->isHit() || !$item->get()) {
             return null;
@@ -86,11 +94,11 @@ class CacheStore implements StoreInterface
 
             if ($minInvalidation >= $responseGeneratedAt->getTimestamp()) {
                 // The cache is too old, we need to revalidate it
-                if ($staleWhileRevalidate && $responseGeneratedAt->diff(new \DateTime())->s >= (int) $staleWhileRevalidate) {
+                if ($staleWhileRevalidate && $responseGeneratedAt->diff($this->clock->now())->s >= (int) $staleWhileRevalidate) {
                     return null;
                 }
 
-                $lockKey = $key . '.lock';
+                $lockKey = $key->key . '.lock';
 
                 /**
                  * We use this cache item to lock that we dispatch only one RefreshHttpCacheMessage for the same request.
@@ -99,15 +107,20 @@ class CacheStore implements StoreInterface
                  */
                 $this->cache->get($lockKey, function (ItemInterface $item) use ($lockKey, $request): void {
                     // We keep the lock for a half hour, if not proceed in that time, the lock will be released, and we can re-dispatch the message
-                    $item->expiresAfter(self::HALF_HOUR);
+                    $item->expiresAt($this->clock->now()->modify('+' . self::HALF_HOUR . ' seconds'));
 
                     $this->bus->dispatch(new RefreshHttpCacheMessage($lockKey, $request->query->all(), $request->attributes->all(), $request->cookies->all(), $request->server->all(), Request::getTrustedProxies(), Request::getTrustedHeaderSet()));
                 });
             }
         }
 
-        if (!$this->stateValidator->isValid($request, $response)) {
-            return null;
+        if (!Feature::isActive('v6.8.0.0') && !Feature::isActive('PERFORMANCE_TWEAKS') && !Feature::isActive('CACHE_REWORK')) {
+            $isValid = Feature::silent('v6.8.0.0', function () use ($request, $response): bool {
+                return $this->stateValidator->isValid($request, $response);
+            });
+            if (!$isValid) {
+                return null;
+            }
         }
 
         $event = new HttpCacheHitEvent($item, $request, $response);
@@ -120,14 +133,23 @@ class CacheStore implements StoreInterface
     public function write(Request $request, Response $response): string
     {
         $key = $this->cacheKeyGenerator->generate($request, $response);
+        // Caching is disabled for the request
+        if (!$key->isCacheable) {
+            return $key->key;
+        }
 
         // maintenance mode active and current ip is whitelisted > disable caching
         if ($this->maintenanceResolver->isMaintenanceRequest($request)) {
-            return $key;
+            return $key->key;
         }
 
-        if (!$this->stateValidator->isValid($request, $response)) {
-            return $key;
+        if (!Feature::isActive('v6.8.0.0') && !Feature::isActive('PERFORMANCE_TWEAKS') && !Feature::isActive('CACHE_REWORK')) {
+            $isValid = Feature::silent('v6.8.0.0', function () use ($request, $response): bool {
+                return $this->stateValidator->isValid($request, $response);
+            });
+            if (!$isValid) {
+                return $key->key;
+            }
         }
 
         $tags = $this->collector->get($request);
@@ -141,7 +163,7 @@ class CacheStore implements StoreInterface
             $response->headers->remove(self::TAG_HEADER);
         }
 
-        $item = $this->cache->getItem($key);
+        $item = $this->cache->getItem($key->key);
 
         /**
          * Symfony pops out in AbstractSessionListener(https://github.com/symfony/symfony/blob/v5.4.5/src/Symfony/Component/HttpKernel/EventListener/AbstractSessionListener.php#L139-L186) the session and assigns it to the Response
@@ -166,7 +188,12 @@ class CacheStore implements StoreInterface
             $item->tag($tags);
         }
 
-        $item->expiresAt($cacheResponse->getExpires());
+        $maxAge = $cacheResponse->getMaxAge();
+        if ($maxAge === null) {
+            $item->expiresAfter(null);
+        } else {
+            $item->expiresAt($this->clock->now()->modify('+' . $maxAge . ' seconds'));
+        }
 
         $this->eventDispatcher->dispatch(
             new HttpCacheStoreEvent($item, $tags, $request, $response)
@@ -174,7 +201,7 @@ class CacheStore implements StoreInterface
 
         $this->cache->save($item);
 
-        return $key;
+        return $key->key;
     }
 
     public function invalidate(Request $request): void
@@ -204,7 +231,7 @@ class CacheStore implements StoreInterface
 
         $item = $this->cache->getItem($key);
         $item->set(true);
-        $item->expiresAfter(3);
+        $item->expiresAt($this->clock->now()->modify('+3 seconds'));
 
         $this->cache->save($item);
         $this->locks[$key] = true;
@@ -256,7 +283,9 @@ class CacheStore implements StoreInterface
 
     private function getLockKey(Request $request): string
     {
-        return 'http_lock_' . $this->cacheKeyGenerator->generate($request);
+        $key = $this->cacheKeyGenerator->generate($request);
+
+        return 'http_lock_' . $key->key;
     }
 
     /**

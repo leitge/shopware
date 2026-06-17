@@ -3,7 +3,6 @@
 namespace Shopware\Tests\Integration\Core\Framework\Seo;
 
 use Doctrine\DBAL\Connection;
-use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Content\Category\CategoryCollection;
@@ -173,7 +172,6 @@ class SeoUrlPersisterTest extends TestCase
         static::assertSame($fk2, $first->getForeignKey());
     }
 
-    #[Depends('testDuplicatesSameSalesChannel')]
     public function testReturnToPreviousUrl(): void
     {
         $salesChannelId = Uuid::randomHex();
@@ -787,7 +785,7 @@ class SeoUrlPersisterTest extends TestCase
     /**
      * @param EntityRepository<SeoUrlCollection> $seoUrlRepository
      *
-     * @return array<array{seoPathInfo: string, isCanonical: bool, isDeleted: bool, languageId: string}>
+     * @return array<array{seoPathInfo: string, isCanonical: bool|null, isDeleted: bool, languageId: string}>
      */
     private function getAllSeoUrlsForProduct(string $productId, EntityRepository $seoUrlRepository): array
     {
@@ -799,7 +797,7 @@ class SeoUrlPersisterTest extends TestCase
         $seoUrls = $seoUrlRepository->search($criteria, Context::createDefaultContext())->getEntities();
         static::assertInstanceOf(SeoUrlCollection::class, $seoUrls);
 
-        return $seoUrls->map(fn (SeoUrlEntity $url) => [
+        return $seoUrls->map(static fn (SeoUrlEntity $url) => [
             'seoPathInfo' => $url->getSeoPathInfo(),
             'isCanonical' => $url->getIsCanonical(),
             'isDeleted' => $url->getIsDeleted(),
@@ -810,7 +808,7 @@ class SeoUrlPersisterTest extends TestCase
     /**
      * @param EntityRepository<SeoUrlCollection> $seoUrlRepository
      *
-     * @return array<array{seoPathInfo: string, isCanonical: bool, isDeleted: bool, languageId: string}>
+     * @return array<array{seoPathInfo: string, isCanonical: bool|null, isDeleted: bool, languageId: string}>
      */
     private function getCurrentCanonicalSeoUrls(string $productId, EntityRepository $seoUrlRepository): array
     {
@@ -824,7 +822,7 @@ class SeoUrlPersisterTest extends TestCase
         $seoUrls = $seoUrlRepository->search($criteria, Context::createDefaultContext())->getEntities();
         static::assertInstanceOf(SeoUrlCollection::class, $seoUrls);
 
-        return $seoUrls->map(fn (SeoUrlEntity $url) => [
+        return $seoUrls->map(static fn (SeoUrlEntity $url) => [
             'seoPathInfo' => $url->getSeoPathInfo(),
             'isCanonical' => $url->getIsCanonical(),
             'isDeleted' => $url->getIsDeleted(),
@@ -835,7 +833,7 @@ class SeoUrlPersisterTest extends TestCase
     /**
      * @param EntityRepository<SeoUrlCollection> $seoUrlRepository
      *
-     * @return array<array{seoPathInfo: string, isCanonical: bool, isDeleted: bool, languageId: string}>
+     * @return array<array{seoPathInfo: string, isCanonical: bool|null, isDeleted: bool, languageId: string}>
      */
     private function getObsoleteSeoUrls(string $productId, EntityRepository $seoUrlRepository): array
     {
@@ -848,7 +846,7 @@ class SeoUrlPersisterTest extends TestCase
         $seoUrls = $seoUrlRepository->search($criteria, Context::createDefaultContext())->getEntities();
         static::assertInstanceOf(SeoUrlCollection::class, $seoUrls);
 
-        return $seoUrls->map(fn (SeoUrlEntity $url) => [
+        return $seoUrls->map(static fn (SeoUrlEntity $url) => [
             'seoPathInfo' => $url->getSeoPathInfo(),
             'isCanonical' => $url->getIsCanonical(),
             'isDeleted' => $url->getIsDeleted(),

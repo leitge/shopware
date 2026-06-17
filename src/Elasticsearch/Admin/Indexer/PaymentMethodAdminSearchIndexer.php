@@ -67,7 +67,7 @@ final class PaymentMethodAdminSearchIndexer extends AbstractAdminIndexer
             }
         }
 
-        return \array_values(\array_unique($ids));
+        return array_values(array_unique(array_filter($ids, '\is_string')));
     }
 
     public function globalData(array $result, Context $context): array
@@ -104,7 +104,13 @@ final class PaymentMethodAdminSearchIndexer extends AbstractAdminIndexer
         foreach ($data as $row) {
             $id = (string) $row['id'];
             $text = \implode(' ', array_filter($row));
-            $mapped[$id] = ['id' => $id, 'text' => \strtolower($text)];
+            $completion = $this->buildCompletion([\is_string($row['name'] ?? null) ? $row['name'] : null]);
+
+            $mapped[$id] = [
+                'id' => $id,
+                'text' => \strtolower($text),
+                'completion' => $completion,
+            ];
         }
 
         return $mapped;

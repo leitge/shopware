@@ -2,11 +2,14 @@
 
 namespace Shopware\Storefront\Controller;
 
+use Shopware\Core\Checkout\Cart\Address\Error\AddressErrorInterface;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\Error\ErrorRoute;
 use Shopware\Core\Content\Media\MediaUrlPlaceholderHandlerInterface;
 use Shopware\Core\Content\Seo\SeoUrlPlaceholderHandlerInterface;
+use Shopware\Core\Framework\Adapter\Request\RequestParamHelper;
 use Shopware\Core\Framework\Adapter\Twig\TemplateFinder;
+use Shopware\Core\Framework\Feature;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Routing\RequestTransformerInterface;
 use Shopware\Core\Framework\Script\Execution\Hook;
@@ -75,7 +78,10 @@ abstract class StorefrontController extends AbstractController
 
         $this->container->get('event_dispatcher')->dispatch($event);
 
-        $iconCacheEnabled = $this->getSystemConfigService()->get('core.storefrontSettings.iconCache') ?? true;
+        $iconCacheEnabled = $this->getSystemConfigService()->get(
+            'core.storefrontSettings.iconCache',
+            $event->getSalesChannelContext()->getSalesChannelId()
+        ) ?? true;
 
         if ($iconCacheEnabled) {
             IconCacheTwigFilter::enable();
@@ -118,10 +124,10 @@ abstract class StorefrontController extends AbstractController
 
     protected function createActionResponse(Request $request): Response
     {
-        if ($request->get('redirectTo') || $request->get('redirectTo') === '') {
+        if (RequestParamHelper::get($request, 'redirectTo') || RequestParamHelper::get($request, 'redirectTo') === '') {
             $params = $this->decodeParam($request, 'redirectParameters');
 
-            $redirectTo = $request->get('redirectTo');
+            $redirectTo = RequestParamHelper::get($request, 'redirectTo');
 
             if ($redirectTo && \is_string($redirectTo)) {
                 return $this->redirectToRoute($redirectTo, $params);
@@ -130,10 +136,10 @@ abstract class StorefrontController extends AbstractController
             return $this->redirectToRoute('frontend.home.page', $params);
         }
 
-        if ($request->get('forwardTo')) {
+        if (RequestParamHelper::get($request, 'forwardTo')) {
             $params = $this->decodeParam($request, 'forwardParameters');
 
-            return $this->forwardToRoute($request->get('forwardTo'), [], $params);
+            return $this->forwardToRoute(RequestParamHelper::get($request, 'forwardTo'), [], $params);
         }
 
         return new Response();
@@ -185,13 +191,17 @@ abstract class StorefrontController extends AbstractController
      */
     protected function decodeParam(Request $request, string $param): array
     {
-        $params = $request->get($param);
+        $params = RequestParamHelper::get($request, $param);
 
         if (\is_string($params)) {
-            $params = json_decode($params, true);
+            try {
+                $params = json_decode($params, true, flags: \JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                $params = [];
+            }
         }
 
-        if (empty($params) || \is_numeric($params)) {
+        if ($params === null || \is_numeric($params)) {
             $params = [];
         }
 
@@ -214,6 +224,7 @@ abstract class StorefrontController extends AbstractController
         $request = $this->container->get('request_stack')->getMainRequest();
         $exists = [];
 
+        /** @phpstan-ignore shopware.unsafeRequestHasSession (using $skipIfUninitialized = false as session will be started intentionally later; this can take the PHP session lock and is limited to storefront flash handling inspecting the flash bag.) */
         if ($request && $request->hasSession() && $request->getSession() instanceof FlashBagAwareSessionInterface) {
             $exists = $request->getSession()->getFlashBag()->peekAll();
         }
@@ -231,11 +242,20 @@ abstract class StorefrontController extends AbstractController
                     $parameters['%' . $key . '%'] = $value;
                 }
 
-                if ($error->getRoute() instanceof ErrorRoute) {
-                    $parameters['%url%'] = $this->generateUrl(
-                        $error->getRoute()->getKey(),
-                        $error->getRoute()->getParams()
-                    );
+                Feature::callSilentIfInactive('v6.8.0.0', function () use (&$parameters, $error): void {
+                    if ($error->getRoute() instanceof ErrorRoute) {
+                        $parameters['%url%'] = $this->generateUrl(
+                            $error->getRoute()->getKey(),
+                            $error->getRoute()->getParams()
+                        );
+                    }
+                });
+
+                if ($error instanceof AddressErrorInterface && $error->getAddressId() !== null) {
+                    $parameters['%url%'] = $this->generateUrl('frontend.account.address.edit.page', [
+                        'addressId' => $error->getAddressId(),
+                        'redirectTo' => $request?->attributes->get('_route'),
+                    ]);
                 }
 
                 $translatedMessage = $this->trans('checkout.' . $error->getMessageKey(), $parameters);
@@ -306,5 +326,20 @@ abstract class StorefrontController extends AbstractController
     protected function getSystemConfigService(): SystemConfigService
     {
         return $this->container->get(SystemConfigService::class);
+    }
+
+    /**
+     * Because some email-clients try to fetch previews for links in mails,
+     * they send a HEAD-request. But because Symfony is routing HEAD-requests
+     * as GET-requests, a subscriber would be confirmed without clicking the link,
+     * only by the HEAD-request.
+     * To determine if the current request is a "HEAD" request or a "GET" request, this
+     * helper method exists.
+     *
+     * Beware: $request->getMethod() or $request->getRealMethod() will both return "GET".
+     */
+    protected function isHeadRequest(): bool
+    {
+        return isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'HEAD';
     }
 }

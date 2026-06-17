@@ -152,13 +152,6 @@ export default {
                     allowResize: true,
                     primary: false,
                 },
-                {
-                    property: 'username',
-                    dataIndex: 'user.username',
-                    label: 'sw-import-export.activity.columns.user',
-                    allowResize: true,
-                    primary: false,
-                },
             ];
         },
 
@@ -307,7 +300,7 @@ export default {
                 }
 
                 const config = {
-                    message: this.$tc(
+                    message: this.$t(
                         this.stateText?.[log.activity]?.[log.state] ?? '',
                         {
                             profile: log.profileName,

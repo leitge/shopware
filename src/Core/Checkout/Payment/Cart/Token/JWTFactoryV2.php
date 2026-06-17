@@ -6,6 +6,7 @@ use Doctrine\DBAL\Connection;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\LooseValidAt;
+use Psr\Clock\ClockInterface;
 use Shopware\Core\Checkout\Payment\PaymentException;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Feature;
@@ -13,6 +14,9 @@ use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Util\Hasher;
 use Shopware\Core\Framework\Uuid\Uuid;
 
+/**
+ * @deprecated tag:v6.8.0 - will be removed, use `PaymentTokenGenerator` and `PaymentTokenLifecycle` instead
+ */
 #[Package('checkout')]
 class JWTFactoryV2 implements TokenFactoryInterfaceV2
 {
@@ -22,12 +26,15 @@ class JWTFactoryV2 implements TokenFactoryInterfaceV2
     public function __construct(
         private readonly Configuration $configuration,
         private readonly Connection $connection,
+        private readonly ClockInterface $clock,
     ) {
     }
 
     public function generateToken(TokenStruct $tokenStruct): string
     {
-        $expires = new \DateTimeImmutable('@' . time());
+        Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedClassMessage(static::class, 'v6.8.0.0', PaymentTokenGenerator::class));
+
+        $expires = new \DateTimeImmutable('@' . $this->clock->now()->getTimestamp());
 
         // @see https://github.com/php/php-src/issues/9950
         if ($tokenStruct->getExpires() > 0) {
@@ -42,8 +49,8 @@ class JWTFactoryV2 implements TokenFactoryInterfaceV2
 
         $jwtTokenBuilder = $this->configuration->builder()
             ->identifiedBy(Uuid::randomHex())
-            ->issuedAt(new \DateTimeImmutable('@' . time()))
-            ->canOnlyBeUsedAfter(new \DateTimeImmutable('@' . time()))
+            ->issuedAt(new \DateTimeImmutable('@' . $this->clock->now()->getTimestamp()))
+            ->canOnlyBeUsedAfter(new \DateTimeImmutable('@' . $this->clock->now()->getTimestamp()))
             ->expiresAt($expires)
             ->withClaim('pmi', $tokenStruct->getPaymentMethodId())
             ->withClaim('ful', $tokenStruct->getFinishUrl())
@@ -68,6 +75,8 @@ class JWTFactoryV2 implements TokenFactoryInterfaceV2
      */
     public function parseToken(string $token): TokenStruct
     {
+        Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedClassMessage(static::class, 'v6.8.0.0', PaymentTokenGenerator::class));
+
         try {
             /** @var UnencryptedToken $jwtToken */
             $jwtToken = $this->configuration->parser()->parse($token);
@@ -76,13 +85,13 @@ class JWTFactoryV2 implements TokenFactoryInterfaceV2
         }
 
         // Remove LooseValidAt constraint, as we want to check it manually and throw a more specific exception
-        $constraints = array_filter($this->configuration->validationConstraints(), fn ($constraint) => !$constraint instanceof LooseValidAt);
+        $constraints = array_filter($this->configuration->validationConstraints(), static fn ($constraint) => !$constraint instanceof LooseValidAt);
 
         if (!$this->configuration->validator()->validate($jwtToken, ...$constraints)) {
             throw PaymentException::invalidToken($token);
         }
 
-        if (!($savedToken = $this->getSavedToken($token))) {
+        if (!$this->getSavedToken($token)) {
             throw PaymentException::tokenInvalidated($token);
         }
 
@@ -99,12 +108,13 @@ class JWTFactoryV2 implements TokenFactoryInterfaceV2
             $jwtToken->claims()->get('ful'),
             $expires->getTimestamp(),
             $errorUrl,
-            (bool) $savedToken['consumed']
         );
     }
 
     public function invalidateToken(string $token): bool
     {
+        Feature::triggerDeprecationOrThrow('v6.8.0.0', Feature::deprecatedClassMessage(static::class, 'v6.8.0.0', PaymentTokenGenerator::class));
+
         if (Feature::isActive('REPEATED_PAYMENT_FINALIZE')) {
             $this->connection->update('payment_token', ['consumed' => 1], ['token' => self::normalize($token)]);
         } else {
@@ -130,13 +140,10 @@ class JWTFactoryV2 implements TokenFactoryInterfaceV2
         );
     }
 
-    /**
-     * @return false|array<string, mixed>
-     */
-    private function getSavedToken(string $token): bool|array
+    private function getSavedToken(string $token): bool
     {
-        return $this->connection->fetchAssociative(
-            'SELECT token, consumed FROM payment_token WHERE token = :token',
+        return (bool) $this->connection->fetchOne(
+            'SELECT 1 FROM payment_token WHERE token = :token',
             ['token' => self::normalize($token)]
         );
     }

@@ -2,7 +2,6 @@
 
 namespace Shopware\Tests\Integration\Core\Content\Product\Hook;
 
-use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Checkout\Cart\Facade\ScriptPriceStubs;
 use Shopware\Core\Content\Product\Hook\Pricing\ProductPricingHook;
@@ -14,6 +13,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Script\Debugging\ScriptTraces;
 use Shopware\Core\Framework\Script\Execution\Script;
+use Shopware\Core\Framework\Script\Execution\ScriptEnvironmentFactory;
 use Shopware\Core\Framework\Script\Execution\ScriptExecutor;
 use Shopware\Core\Framework\Script\Execution\ScriptLoader;
 use Shopware\Core\Framework\Test\TestCaseBase\IntegrationTestBehaviour;
@@ -22,12 +22,12 @@ use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\Test\Stub\Framework\IdsCollection;
 use Shopware\Core\Test\TestDefaults;
+use Symfony\Component\Clock\NativeClock;
 
 /**
  * @internal
  */
 #[Package('inventory')]
-#[CoversClass(ProductPricingHook::class)]
 class ProductPricingHookTest extends TestCase
 {
     use IntegrationTestBehaviour;
@@ -86,14 +86,19 @@ class ProductPricingHookTest extends TestCase
         $hook = new ProductPricingHookExtension($proxies, $salesChannelContext, $ids);
 
         // allows easy debugging
-        $traces = new ScriptTraces();
+        $traces = new ScriptTraces(new NativeClock());
 
         $loader = $this->createMock(ScriptLoader::class);
         $loader->method('get')->willReturn([
             new Script('foo', (string) \file_get_contents(__DIR__ . '/_fixtures/pricing-cases/product-pricing.twig'), new \DateTimeImmutable()),
         ]);
 
-        $executor = new ScriptExecutor($loader, $traces, static::getContainer(), static::getContainer()->get('twig.extension.trans'), 'v6.5.0.0');
+        $executor = new ScriptExecutor(
+            $loader,
+            $traces,
+            static::getContainer(),
+            static::getContainer()->get(ScriptEnvironmentFactory::class),
+        );
 
         $executor->execute($hook);
 

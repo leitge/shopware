@@ -94,7 +94,8 @@
       "placeholderName": "Lege einen Namen für diese Regel fest ...",
       "placeholderDescription": "Lege eine Beschreibung für diese Regel fest ...",
       "placeholderPriority": "Lege eine Priorität für diese Regel fest ...",
-      "placeholderTags": "Gib Tags ein ...",
+      "placeholderTags": "Tags eingeben ...",
+      "placeholderType": "Typ eingeben ...",
       "messageSaveSuccess": "Die Regel \"{name}\" wurde erfolgreich gespeichert.",
       "ruleCard": "Bedingungen",
       "messageSaveError": "Beim Speichern der Regel ist ein Fehler aufgetreten",
@@ -103,6 +104,9 @@
         "message": "Die Bedingung „Position in dynamischer Produktgruppe” wird nie zutreffen.",
         "action": "Mehr dazu in unserer Dokumentation"
       },
+      "deprecatedConditionWarning": "Die Bedingung \"{label}\" ist veraltet und wird mit {version} entfernt. Bitte nutze stattdessen \"{replacement}\".",
+      "deprecatedConditionWarningNoReplacement": "Die Bedingung \"{label}\" ist veraltet und wird mit {version} entfernt.",
+      "flowOnlyConditionsWarning": "Folgende Bedingungen dieser Regel benötigen einen Flow-Kontext: {conditions}. Außerhalb eines Flows (z. B. in Versandarten, Zahlungsarten oder Aktions-Zuweisungen) werden sie immer zu \"falsch\" ausgewertet.",
       "tabGeneral": "Allgemein",
       "tabAssignments": "Zuweisungen",
       "buttonAddAssignment":  "Zuweisung hinzufügen",
@@ -119,7 +123,20 @@
         "promotionGroupRules": "Rabattaktion-Setgruppenregeln",
         "shippingMethodAvailabilityRule": "Versandart-Verfügbarkeitsregeln",
         "flows": "Flow-Builders",
-        "taxProviders": "Steuerservice-Anbieter"
+        "taxProviders": "Steueranbieter",
+        "columns": {
+          "name": "Name",
+          "manufacturer": "Hersteller",
+          "description": "Beschreibung",
+          "taxCalculation": "Steuerberechnung",
+          "active": "Aktiv",
+          "extension": "Erweiterung",
+          "position": "Position",
+          "validFrom": "Gültig ab",
+          "validTo": "Gültig bis",
+          "flow": "Flow",
+          "trigger": "Trigger"
+        }
       },
       "typeHasNoAssociations": "Keine Regeln zugewiesen",
       "hasNoAssociations": "Diese Regel wird nicht verwendet",

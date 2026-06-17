@@ -5,17 +5,22 @@ namespace Shopware\Core\System\Snippet\Service;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 use League\Flysystem\Filesystem;
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\AndFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Plugin;
+use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
+use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\Language\LanguageCollection;
 use Shopware\Core\System\Locale\LocaleCollection;
 use Shopware\Core\System\Snippet\Aggregate\SnippetSet\SnippetSetCollection;
 use Shopware\Core\System\Snippet\DataTransfer\Language\Language;
 use Shopware\Core\System\Snippet\SnippetException;
+use Shopware\Core\System\Snippet\SnippetPatterns;
 use Shopware\Core\System\Snippet\Struct\TranslationConfig;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Validator\Constraints\Locale;
@@ -25,11 +30,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * @internal
  */
 #[Package('discovery')]
-class TranslationLoader
+class TranslationLoader extends AbstractTranslationLoader
 {
-    public const TRANSLATION_DIR = '/translation';
-    public const TRANSLATION_LOCALE_SUB_DIR = 'locale';
-
     private const PLATFORM_BUNDLES = [
         'Administration' => 'administration.json',
         'Core' => 'messages.json',
@@ -55,6 +57,11 @@ class TranslationLoader
         private readonly TranslationConfig $config,
         private readonly ValidatorInterface $validator,
     ) {
+    }
+
+    public function getDecorated(): AbstractTranslationLoader
+    {
+        throw new DecorationPatternException(self::class);
     }
 
     public function load(string $locale, Context $context, bool $activate = true): void
@@ -90,21 +97,31 @@ class TranslationLoader
         return false;
     }
 
+    public function pluginTranslationExistsForLocale(Plugin $plugin, string $locale): bool
+    {
+        $name = $this->config->getMappedPluginName($plugin);
+        $pluginPath = Path::join($this->getLocalePath($locale), 'Plugins', $name);
+
+        return $this->translationWriter->directoryExists($pluginPath);
+    }
+
     public function getLocalesBasePath(): string
     {
-        return Path::join(self::TRANSLATION_DIR, self::TRANSLATION_LOCALE_SUB_DIR);
+        return Path::join(static::TRANSLATION_DIR, static::TRANSLATION_LOCALE_SUB_DIR);
     }
 
     public function getLocalePath(string $locale): string
     {
-        $localeViolationCount = $this->validator
-            ->validate($locale, new Locale())
-            ->count();
-        if ($locale !== '*' && $localeViolationCount !== 0) {
-            return '';
+        if (!\array_key_exists($locale, SnippetPatterns::ALLOWED_PSEUDO_LOCALES)) {
+            $localeViolationCount = $this->validator
+                ->validate($locale, new Locale())
+                ->count();
+            if ($locale !== '*' && $localeViolationCount !== 0) {
+                return '';
+            }
         }
 
-        return Path::join(self::TRANSLATION_DIR, self::TRANSLATION_LOCALE_SUB_DIR, $locale);
+        return Path::join(static::TRANSLATION_DIR, static::TRANSLATION_LOCALE_SUB_DIR, $locale);
     }
 
     private function fetchPluginSnippets(string $locale): void
@@ -182,7 +199,11 @@ class TranslationLoader
         $localeId = $this->localeRepository->searchIds($criteria, $context)->firstId();
 
         if (!$localeId) {
-            throw SnippetException::localeDoesNotExist($language->locale);
+            if (!\array_key_exists($language->locale, SnippetPatterns::ALLOWED_PSEUDO_LOCALES)) {
+                throw SnippetException::localeDoesNotExist($language->locale);
+            }
+
+            $localeId = $this->createPseudoLocale($language, $context);
         }
 
         $criteria = new Criteria();
@@ -202,10 +223,35 @@ class TranslationLoader
         ]], $context);
     }
 
+    private function createPseudoLocale(Language $language, Context $context): string
+    {
+        $localeId = Uuid::randomHex();
+
+        $this->localeRepository->create([[
+            'id' => $localeId,
+            'code' => $language->locale,
+            'translations' => [
+                Defaults::LANGUAGE_SYSTEM => [
+                    'name' => SnippetPatterns::ALLOWED_PSEUDO_LOCALES[$language->locale],
+                    'territory' => SnippetPatterns::PSEUDO_LOCALE_TERRITORY,
+                ],
+            ],
+        ]], $context);
+
+        return $localeId;
+    }
+
     private function createSnippetSet(Language $language, Context $context): void
     {
+        $snippetSetName = "BASE {$language->locale}";
+
         $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('iso', $language->locale));
+        $criteria->addFilter(
+            new AndFilter([
+                new EqualsFilter('iso', $language->locale),
+                new EqualsFilter('name', $snippetSetName),
+            ])
+        );
 
         $snippetId = $this->snippetSetRepository->searchIds($criteria, $context)->firstId();
 
@@ -215,7 +261,7 @@ class TranslationLoader
 
         $snippetSets = [
             [
-                'name' => 'BASE ' . $language->locale,
+                'name' => $snippetSetName,
                 'iso' => $language->locale,
                 'baseFile' => 'messages.' . $language->locale,
             ],

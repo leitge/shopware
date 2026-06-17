@@ -6,6 +6,8 @@ use Shopware\Core\Checkout\Cart\CartBehavior;
 use Shopware\Core\Checkout\Cart\CartRuleLoader;
 use Shopware\Core\Checkout\Cart\Order\OrderConverter;
 use Shopware\Core\Checkout\Cart\Price\Struct\CalculatedPrice;
+use Shopware\Core\Checkout\Cart\Price\Struct\CartPrice;
+use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Checkout\Gateway\SalesChannel\AbstractCheckoutGatewayRoute;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStates;
 use Shopware\Core\Checkout\Order\Event\OrderPaymentMethodChangedCriteriaEvent;
@@ -48,6 +50,7 @@ class SetPaymentOrderRoute extends AbstractSetPaymentOrderRoute
         private readonly EntityRepository $orderRepository,
         private readonly OrderConverter $orderConverter,
         private readonly CartRuleLoader $cartRuleLoader,
+        private readonly CartService $cartService,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly InitialStateIdLoader $initialStateIdLoader,
         private readonly AbstractCheckoutGatewayRoute $checkoutGatewayRoute
@@ -62,8 +65,11 @@ class SetPaymentOrderRoute extends AbstractSetPaymentOrderRoute
     #[Route(
         path: '/store-api/order/payment',
         name: 'store-api.order.set-payment',
-        defaults: ['_loginRequired' => true, '_loginRequiredAllowGuest' => true],
-        methods: ['POST'],
+        defaults: [
+            PlatformRequest::ATTRIBUTE_LOGIN_REQUIRED => true,
+            PlatformRequest::ATTRIBUTE_LOGIN_REQUIRED_ALLOW_GUEST => true,
+        ],
+        methods: [Request::METHOD_POST],
     )]
     public function setPayment(Request $request, SalesChannelContext $context): SetPaymentOrderRouteResponse
     {
@@ -152,6 +158,11 @@ class SetPaymentOrderRoute extends AbstractSetPaymentOrderRoute
     {
         $paymentMethodId = $request->request->getAlnum('paymentMethodId');
         $cart = $this->orderConverter->convertToCart($order, $salesChannelContext->getContext());
+        $cart->setToken($salesChannelContext->getToken());
+
+        $this->cartService->setCart($cart);
+        $request->attributes->set('orderId', $order->getId());
+
         $response = $this->checkoutGatewayRoute->load($request, $cart, $salesChannelContext);
 
         if ($response->getPaymentMethods()->get($paymentMethodId) === null) {
@@ -178,6 +189,10 @@ class SetPaymentOrderRoute extends AbstractSetPaymentOrderRoute
 
         foreach ($transactions as $transaction) {
             if ($transaction->getPaymentMethodId() === $paymentMethodId && $lastTransaction->getId() === $transaction->getId()) {
+                if ($this->hasChangedAmount($order->getPrice(), $transaction->getAmount())) {
+                    return false;
+                }
+
                 $initialState = $this->initialStateIdLoader->get(OrderTransactionStates::STATE_MACHINE);
                 if ($transaction->getStateId() === $initialState) {
                     return true;
@@ -279,5 +294,24 @@ class SetPaymentOrderRoute extends AbstractSetPaymentOrderRoute
         }
 
         throw OrderException::paymentMethodNotChangeable();
+    }
+
+    private function hasChangedAmount(CartPrice $original, CalculatedPrice $transactionAmount): bool
+    {
+        if ($original->getTotalPrice() !== $transactionAmount->getTotalPrice()) {
+            return true;
+        }
+
+        $cartTaxes = $original->getCalculatedTaxes();
+        $transactionTaxes = $transactionAmount->getCalculatedTaxes();
+        if ($cartTaxes->getKeys() !== $transactionTaxes->getKeys()) {
+            return true;
+        }
+
+        if ($cartTaxes->getAmount() !== $transactionTaxes->getAmount()) {
+            return true;
+        }
+
+        return false;
     }
 }

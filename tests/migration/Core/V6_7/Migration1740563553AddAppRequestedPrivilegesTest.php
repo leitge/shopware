@@ -6,8 +6,8 @@ use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Framework\Log\Package;
-use Shopware\Core\Framework\Migration\ColumnExistsTrait;
 use Shopware\Core\Framework\Test\TestCaseBase\KernelLifecycleManager;
+use Shopware\Core\Framework\Util\Database\TableHelper;
 use Shopware\Core\Migration\V6_7\Migration1740563553AddAppRequestedPrivileges;
 
 /**
@@ -17,30 +17,38 @@ use Shopware\Core\Migration\V6_7\Migration1740563553AddAppRequestedPrivileges;
 #[CoversClass(Migration1740563553AddAppRequestedPrivileges::class)]
 class Migration1740563553AddAppRequestedPrivilegesTest extends TestCase
 {
-    use ColumnExistsTrait;
-
     private Connection $connection;
 
     protected function setUp(): void
     {
         $this->connection = KernelLifecycleManager::getConnection();
+    }
 
+    public function testGetCreationTimestamp(): void
+    {
+        static::assertSame(1740563553, (new Migration1740563553AddAppRequestedPrivileges())->getCreationTimestamp());
+    }
+
+    public function testMigration(): void
+    {
+        $this->dropRequestedPrivilegesColumn();
+
+        static::assertFalse(TableHelper::columnExists($this->connection, 'app', 'requested_privileges'));
+
+        $migration = new Migration1740563553AddAppRequestedPrivileges();
+        $migration->update($this->connection);
+        $migration->update($this->connection);
+
+        static::assertTrue(TableHelper::columnExists($this->connection, 'app', 'requested_privileges'));
+    }
+
+    private function dropRequestedPrivilegesColumn(): void
+    {
         try {
             $this->connection->executeStatement(
                 'ALTER TABLE `app` DROP COLUMN `requested_privileges`;'
             );
         } catch (\Throwable) {
         }
-    }
-
-    public function testMigration(): void
-    {
-        static::assertFalse($this->columnExists($this->connection, 'app', 'requested_privileges'));
-
-        $migration = new Migration1740563553AddAppRequestedPrivileges();
-        $migration->update($this->connection);
-        $migration->update($this->connection);
-
-        static::assertTrue($this->columnExists($this->connection, 'app', 'requested_privileges'));
     }
 }

@@ -1,3 +1,5 @@
+/* eslint-disable sw-test-rules/test-file-max-lines-warning, sw-test-rules/test-file-max-lines-error */
+
 /**
  * @sw-package fundamentals@after-sales
  */
@@ -826,16 +828,11 @@ const createWrapper = async (options = {}) => {
                 'sw-time-ago': await wrapTestComponent('sw-time-ago', { sync: true }),
             },
             mocks: {
-                $tc: (key, _, pluralization) => {
-                    if (!pluralization) return key;
-
-                    switch (key) {
-                        default: {
-                            return { key, pluralization };
-                        }
+                $t: (key, params, pluralization) => {
+                    if (pluralization !== undefined) {
+                        return { key, pluralization };
                     }
-                },
-                $t: (key) => {
+
                     switch (key) {
                         case 'sw-import-export.activity.status.progress': {
                             return 'Progress';
@@ -1208,9 +1205,9 @@ describe('module/sw-import-export/components/sw-import-export-activity', () => {
             .trigger('click');
         await flushPromises();
 
-        expect(
-            wrapper.findAll('.sw-data-grid__body .sw-import-export-activity__download-action:nth-of-type(2)'),
-        ).toHaveLength(0);
+        expect(wrapper.find('.sw-data-grid__body .sw-import-export-activity__download-action').classes()).toContainEqual(
+            'is--disabled',
+        );
 
         jest.clearAllTimers();
     });
@@ -1719,7 +1716,7 @@ describe('module/sw-import-export/components/sw-import-export-activity', () => {
         await wrapper.find('.sw-data-grid__row--0 > .sw-data-grid__cell--actions button').trigger('click');
         await flushPromises();
 
-        await wrapper.find('.sw-context-menu-item:nth-of-type(2)').trigger('click');
+        await wrapper.find('.sw-import-export-activity__open-profile-action').trigger('click');
         await flushPromises();
 
         expect(wrapper.findAll('.sw-import-export-edit-profile-modal')).toHaveLength(1);
@@ -1751,7 +1748,7 @@ describe('module/sw-import-export/components/sw-import-export-activity', () => {
         await wrapper.find('.sw-data-grid__row--0 > .sw-data-grid__cell--actions button').trigger('click');
         await flushPromises();
 
-        await wrapper.find('.sw-context-menu-item:nth-of-type(2)').trigger('click');
+        await wrapper.find('.sw-import-export-activity__open-profile-action').trigger('click');
         await flushPromises();
 
         expect(wrapper.findAll('.sw-import-export-edit-profile-modal')).toHaveLength(1);
@@ -1790,7 +1787,7 @@ describe('module/sw-import-export/components/sw-import-export-activity', () => {
         await wrapper.find('.sw-data-grid__row--0 > .sw-data-grid__cell--actions button').trigger('click');
         await flushPromises();
 
-        await wrapper.find('.sw-context-menu-item:nth-of-type(2)').trigger('click');
+        await wrapper.find('.sw-import-export-activity__open-profile-action').trigger('click');
         await flushPromises();
 
         expect(wrapper.findAll('.sw-import-export-edit-profile-modal')).toHaveLength(1);

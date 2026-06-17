@@ -27,6 +27,22 @@ const defaultProps = {
     },
 };
 
+function buildRuleConditionService() {
+    const ruleConditionService = new RuleConditionService();
+
+    ruleConditionService.addCondition('cartLineItemProductType', {
+        label: 'global.sw-condition.condition.cartLineItemProductTypeRule',
+    });
+
+    ruleConditionService.registerDeprecation('cartLineItemProductStates', {
+        version: 'v6.8.0.0',
+        replacement: 'cartLineItemProductType',
+        label: 'global.sw-condition.condition.cartLineItemProductStatesRule',
+    });
+
+    return ruleConditionService;
+}
+
 async function createWrapper(props = defaultProps, privileges = ['rule.editor']) {
     return mount(await wrapTestComponent('sw-settings-rule-detail-base', { sync: true }), {
         props,
@@ -62,7 +78,7 @@ async function createWrapper(props = defaultProps, privileges = ['rule.editor'])
                 'mt-banner': true,
             },
             provide: {
-                ruleConditionDataProviderService: new RuleConditionService(),
+                ruleConditionDataProviderService: buildRuleConditionService(),
                 acl: {
                     can: (identifier) => {
                         return privileges.includes(identifier);
@@ -297,6 +313,47 @@ describe('src/module/sw-settings-rule/view/sw-settings-rule-detail-base', () => 
             const banner = wrapper.find('.sw-settings-rule-detail-base__product-stream-warning mt-banner-stub');
             expect(banner.exists()).toBe(true);
             expect(banner.attributes('variant')).toBe('attention');
+        });
+
+        it('should show product type warning when cartLineItemProductStates condition exists', async () => {
+            Shopware.Context.app.productStreamIndexingEnabled = true;
+
+            const props = {
+                ...defaultProps,
+                conditions: [
+                    {
+                        type: 'cartLineItemProductStates',
+                    },
+                ],
+            };
+
+            const wrapper = await createWrapper(props);
+            await flushPromises();
+
+            const banner = wrapper.find('.sw-settings-rule-detail-base__product-type-warning mt-banner-stub');
+            expect(banner.exists()).toBe(true);
+            expect(banner.attributes('variant')).toBe('attention');
+        });
+
+        it('should not show product type warning when cartLineItemProductStates condition does not exist', async () => {
+            const props = {
+                ...defaultProps,
+                conditions: [
+                    {
+                        type: 'cartAmount',
+                        children: [
+                            {
+                                type: 'lineItemOfType',
+                            },
+                        ],
+                    },
+                ],
+            };
+
+            const wrapper = await createWrapper(props);
+            await flushPromises();
+
+            expect(wrapper.find('.sw-settings-rule-detail-base__product-type-warning mt-banner-stub').exists()).toBe(false);
         });
     });
 

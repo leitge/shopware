@@ -36,6 +36,10 @@ class SitemapRoute extends AbstractSitemapRoute
         return 'sitemap-route-' . $id;
     }
 
+    /**
+     * Though this is a GET route, caching was not added as the system may use the SitemapExporterInterface::STRATEGY_LIVE
+     * refresh strategy and caching may interfere with it. This route is also not normally called often.
+     */
     #[Route(path: '/store-api/sitemap', name: 'store-api.sitemap', methods: ['GET', 'POST'])]
     public function load(Request $request, SalesChannelContext $context): SitemapRouteResponse
     {
@@ -48,7 +52,7 @@ class SitemapRoute extends AbstractSitemapRoute
         }
 
         // Close session to prevent session locking from waiting in case there is another request coming in
-        if ($request->hasSession() && session_status() === \PHP_SESSION_ACTIVE) {
+        if ($request->hasSession(true) && session_status() === \PHP_SESSION_ACTIVE) {
             $request->getSession()->save();
         }
 

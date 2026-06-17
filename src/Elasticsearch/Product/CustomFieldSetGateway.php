@@ -7,11 +7,14 @@ use Doctrine\DBAL\Connection;
 use Shopware\Core\Framework\DataAbstractionLayer\Doctrine\FetchModeHelper;
 use Shopware\Core\Framework\Log\Package;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Tests\Integration\Elasticsearch\Product\CustomFieldSetGatewayTest;
 
 /**
  * @internal
  *
- * @codeCoverageIgnore Integration tested with \Shopware\Tests\Integration\Elasticsearch\Product\CustomFieldSetGatewayTest
+ * @codeCoverageIgnore
+ *
+ * @see CustomFieldSetGatewayTest
  */
 #[Package('framework')]
 class CustomFieldSetGateway
@@ -34,6 +37,7 @@ class CustomFieldSetGateway
                 SELECT LOWER(HEX(set_id)) as set_id, LOWER(HEX(id)) AS id, name, type
                 FROM custom_field
                 WHERE set_id IN (:setIds)
+                    AND include_in_search = 1
             SQL,
             ['setIds' => Uuid::fromHexToBytesList($setIds)],
             ['setIds' => ArrayParameterType::STRING]
@@ -43,6 +47,24 @@ class CustomFieldSetGateway
         $customFields = FetchModeHelper::group($result);
 
         return $customFields;
+    }
+
+    /**
+     * @param array<string> $setIds
+     *
+     * @return array<string>
+     */
+    public function fetchAppOwnedFieldSetIds(array $setIds): array
+    {
+        if ($setIds === []) {
+            return [];
+        }
+
+        return $this->connection->fetchFirstColumn(
+            'SELECT LOWER(HEX(id)) FROM custom_field_set WHERE id IN (:ids) AND app_id IS NOT NULL',
+            ['ids' => Uuid::fromHexToBytesList($setIds)],
+            ['ids' => ArrayParameterType::STRING]
+        );
     }
 
     /**

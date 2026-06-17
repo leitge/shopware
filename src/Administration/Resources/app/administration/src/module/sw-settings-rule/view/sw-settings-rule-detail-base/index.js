@@ -92,6 +92,24 @@ export default {
                 this.hasProductStreamConditions(this.conditions)
             );
         },
+
+        deprecatedConditionsInUse() {
+            if (!this.conditions) {
+                return [];
+            }
+
+            return this.ruleConditionDataProviderService.getDeprecationsInTree(this.conditions);
+        },
+
+        flowOnlyConditionLabels() {
+            if (!this.conditions) {
+                return [];
+            }
+
+            return this.ruleConditionDataProviderService
+                .getFlowOnlyTypesInTree(this.conditions)
+                .map((entry) => this.$t(entry.label));
+        },
     },
 
     created() {
