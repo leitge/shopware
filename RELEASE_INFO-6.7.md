@@ -1,5 +1,18 @@
 # 6.7.12.0 (upcoming)
 
+## Features
+
+### Agentic files for sales channels
+
+Sales channels can now publish opt-in agentic files such as `/llms.txt` and `/agents.md`.
+Merchants can manage these files in the sales channel details, enable them per sales channel, preview the generated content, and add custom notes without replacing the default content provided by Shopware or extensions.
+
+Core ships the initial `agentic` file family.
+The files are rendered from Twig templates, so Shopware, plugins, apps, and themes can contribute or extend content through normal Shopware Twig inheritance.
+Extensions can add additional templates under `Resources/views/files/agentic/**.twig`, including nested paths such as `.well-known/*`.
+
+The Admin API exposes documented action routes for listing, reading details, and previewing sales-channel files under `/api/_action/sales-channel-file/{fileFamily}/{salesChannelId}`.
+
 ## Storefront
 
 ### Storefront cache hash no longer varies by language
@@ -86,6 +99,13 @@ The Admin API plain JSON encoder now keeps extension association fields inside t
 For example, including an extension association such as `toOne` on an entity returns `extensions.toOne` instead of promoting `toOne` to the top-level response.
 Nested extension entities also respect their own include definitions, so API clients can filter extension payload fields consistently.
 
+### Customer email uniqueness is enforced on writes
+
+Admin API and Sync API customer writes now enforce the same non-guest customer email uniqueness rules as the Administration customer form and Store API registration flows.
+When `core.systemWideLoginRegistration.isCustomerBoundToSalesChannel` is disabled, a non-guest customer email must be unique globally.
+When the setting is enabled, duplicate non-guest emails are only accepted for customers bound to different sales channels.
+Extensions can use `Shopware\Core\Checkout\Customer\Validation\CustomerEmailUniqueChecker` with `CustomerEmailUniqueCheck` to apply the same configuration-aware uniqueness rules.
+
 ### Number range previews can target a concrete number range
 
 The Admin API now supports previewing a persisted number range by id via `/api/_action/number-range/{numberRangeId}/preview-pattern`.
@@ -110,15 +130,25 @@ The Administration role editor also adds these privileges to newly generated rol
 
 ## Core
 
+### Dynamic product groups can keep matching variants ungrouped
+
+Now, product streams have a new boolean field `displayAsGroup` and a corresponding Administration toggle "Keep matching variants grouped" on the dynamic product group detail page.
+When `displayAsGroup` is disabled, matching variants are returned and rendered individually instead of being grouped or remapped.
+
+The new database field `product_stream.display_as_group` defaults to `1`, so existing product streams keep the previous grouped behavior after migration unless they are changed explicitly.
+Also, `ProductStreamBuilderInterface` and `buildFilters()` are deprecated and will be removed in `v6.8.0.0`; use `AbstractProductStreamBuilder::enrichCriteria()` as the primary extension point instead.
+
 ### Rule Builder: new "Quantity per item" condition
 
 A new line item rule condition `LineItemPerItemQuantityRule` (`cartLineItemPerItemQuantity`) was added. It matches the cart against the quantity of each individual line item, without selecting a specific product.
+
 ### Storefront snippets of self-managed apps are loaded
 
 Storefront snippet files (`Resources/snippet/*.json`) shipped by self-managed apps (services) are now loaded.
 Previously, the snippet loader resolved app snippets only from the local app directory, which self-managed apps do not have, so their storefront snippets were silently ignored.
 The snippet files are now resolved through the app source system, the same way assets, scripts, and admin snippets of self-managed apps already are.
 Service developers no longer need to work around missing storefront translations; the same app zip now behaves identically whether installed as a regular app or as a service.
+
 ### Deprecation of `shopware.cache.cache_compression` and `shopware.cache.cache_compression_method` config options
 
 The `shopware.cache.cache_compression` and `shopware.cache.cache_compression_method` configuration options are deprecated and will be removed in v6.8.0.0. Please use the new `shopware.cache.compress` and `shopware.cache.compression_method` options instead.
@@ -165,6 +195,14 @@ Switch between them in `config/packages/shopware.yaml`:
 
 Both processors work with the new `ThumbnailImage` DTO (`Shopware\Core\Content\Media\Thumbnail\DTO\ThumbnailImage`), which is a thin wrapper carrying the underlying image resource.
 `ThumbnailService` only ever deals with `ThumbnailImage` objects and is fully agnostic of the concrete library.
+
+### Core Twig `config()` helper
+
+The Twig `config()` helper is now provided by the core Twig environment so non-storefront templates can read sales-channel-aware system configuration.
+Twig templates can continue using `config('my.config.key')` unchanged.
+
+The PHP methods `Shopware\Storefront\Framework\Twig\Extension\ConfigExtension::config()` and `Shopware\Storefront\Framework\Twig\TemplateConfigAccessor::config()` are deprecated.
+PHP code should use `SystemConfigService` directly instead.
 
 ### Number range value generator interface deprecated
 
@@ -261,6 +299,20 @@ This reduced loading is **enabled for fresh installations** and **disabled for e
 
 A new read-only, translatable `descriptionTeaser` field is available on `product` (and `product_translation`). It is derived from the description on write (HTML stripped, truncated to 512 characters) and exposed via the Store and Admin API. The stripping is configurable through the `html_sanitizer` field set `product_translation.descriptionTeaser`. Existing products are backfilled asynchronously: the migration schedules the `product.description_teaser.indexer`, which runs over the message queue after the update (or manually via `bin/console dal:refresh:index`).
 
+### Agentic Commerce product export and tracking classes deprecated
+
+The following classes related to Agentic Commerce product exports, providers, and sales channel tracking are deprecated and will be removed in Shopware 6.8.0:
+
+- `Shopware\Core\Content\ProductExport\Provider\AbstractAgenticCommerceProductExportProvider`
+- `Shopware\Core\Content\ProductExport\Provider\AgenticCommerceProductExportProviderRegistry`
+- `Shopware\Core\Content\ProductExport\Provider\GoogleProductExportProvider`
+- `Shopware\Core\Content\ProductExport\Provider\OpenAiProductExportProvider`
+- `Shopware\Core\Content\ProductExport\Validator\JsonlRowParser`
+- `Shopware\Core\Content\ProductExport\Validator\OpenAiProductExportValidator`
+- `Shopware\Core\Content\ProductExport\Validator\GoogleProductExportValidator`
+
+This functionality will be available in the **Agentic Commerce extension (SwagAgenticCommerce)** instead.
+
 ## Administration
 
 ### Cache-relevant extension configuration fields
@@ -309,6 +361,10 @@ Rule Builder cart total condition labels now describe more clearly which cart va
 
 Column headers and the column visibility settings in `sw-data-grid` now resolve their labels against the configured i18n fallback locale when the snippet is missing in the current locale, instead of rendering the raw snippet key. This matches the behavior users expect when a translation is only available in English.
 
+### Rule builder shows per-field errors on conditions
+
+Invalid condition inputs are now highlighted individually with a list of the affected fields below the row. All reversed date ranges are reported in one save instead of one at a time.
+
 ### Reworked timeframe options in `sw-date-filter`
 
 The order date filter dropdown now offers a 15-entry list, in display order:
@@ -355,6 +411,43 @@ Administration dropdowns now identify outside clicks correctly when the browser 
 ### Resolving download errors by renaming media
 
 When merchants rename a media file, its URL automatically updates so they can download it without issues.
+
+### Agentic Commerce Administration components deprecated
+
+The following Administration component, methods, and computed properties are deprecated and will be removed in Shopware 6.8:
+
+**`sw-agentic-commerce-tracking-config`** — entire component deprecated.
+
+**`sw-sales-channel-modal-grid`:**
+- computed `salesChannelRepository`
+- method `isAgenticCommerceSalesChannelType()`
+- method `showAgenticCommerceType()`
+
+**`sw-sales-channel-detail`:**
+- provide `swSalesChannelDetailGetAgenticCommerceExportConfig`
+- data `agenticCommerceExportConfig`
+- computed `isAgenticCommerce`
+- computed `defaultAgenticCommerceExportConfig`
+- method `validateAgenticCommerceExportConfig()`
+- method `loadAgenticCommerceExportConfig()`
+- method `saveAgenticCommerceExportConfig()`
+
+**`sw-sales-channel-create-base`:**
+- method `prefillAgenticCommerceDefaults()`
+
+**`sw-sales-channel-detail-base`:**
+- inject `swSalesChannelDetailGetAgenticCommerceExportConfig`
+- computed `isAgenticCommerce`
+- computed `resolvedAgenticCommerceExportConfig`
+- method `getAgenticCommerceExportElementBind()`
+- method `getAgenticCommerceExportCardTitle()`
+- method `getAgenticCommerceExportCardPositionIdentifier()`
+- method `onAgenticCommerceExportFieldUpdate()`
+
+**`sw-sales-channel-detail-product-comparison`:**
+- computed `isAgenticCommerce`
+
+This functionality will be available in the **Agentic Commerce extension (SwagAgenticCommerce)** instead.
 
 ## App System
 
@@ -409,6 +502,24 @@ All operations respect the authenticated user's ACL permissions and integrate wi
 To enable this feature, set the `MCP_SERVER` feature flag to `true`. The MCP endpoint is available at `/api/_mcp` and uses the Streamable HTTP transport. Plugins register additional MCP capabilities by tagging services with `mcp.tool`, `mcp.prompt`, or `mcp.resource`. Apps can declare them in their app manifest.
 
 A `debug:mcp` CLI command is available to list all registered MCP tools, prompts, and resources.
+
+### [Experimental] Store API MCP server
+
+A new MCP endpoint at `/store-api/_mcp` accepts standard Store API credentials
+(`sw-access-key` + `sw-context-token`) and runs a separate capability registry from
+the Admin API endpoint.
+
+Plugins register Store API capabilities via service tags:
+`shopware.store_api_mcp.tool`, `shopware.store_api_mcp.prompt`, `shopware.store_api_mcp.resource`.
+
+Browser-based MCP clients are supported: the `mcp-session-id` and `mcp-protocol-version`
+headers are allowed and exposed through CORS on API responses.
+
+Both `McpContextProvider` and `StoreApiMcpContextProvider` implement `McpContextProviderInterface`.
+Type-hint against the interface in tools that need to work across both API scopes.
+
+Note: endpoint discovery and storefront session authentication are not included. Those
+are provided by the UCP SDK.
 
 ## API
 
